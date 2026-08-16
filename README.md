@@ -32,7 +32,7 @@ Currently, there is no accessible, farmer-friendly system that allows a small-sc
 
 ---
 
-## 📚 Week 1 Project Documentation
+## 📚 Project Documentation
 
 - [Day 1: Problem & Objectives](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/01_problem_and_objectives.md)
 - [Day 2: Competitor Research](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/02_competitor_research.md)
@@ -41,3 +41,4 @@ Currently, there is no accessible, farmer-friendly system that allows a small-sc
 - [Day 5: Dev Environment & Firebase Setup Guide](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/05_dev_environment.md)
 - [Day 6: User Flows & Sequence Diagrams](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/06_user_flows_and_diagrams.md)
 - [Day 7: Week 1 Summary & Project Diary](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/07_week1_summary.md)
+- [Day 8: Mobile Screens Design Specs (375x812)](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/08_mobile_screens_design_spec.md)
