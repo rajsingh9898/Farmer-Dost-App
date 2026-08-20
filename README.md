@@ -27,3 +27,9 @@ Currently, there is no accessible, farmer-friendly system that allows a small-sc
 | **Farmer Profile** | A simple profile for each farmer, storing their basic details and a history of previously scanned products for future reference. |
 
 These four features form the core MVP loop: **scan → verify → report if needed → track history** — establishing the essential trust-building function of the app before layering on advanced capabilities like crop advisory or offline sync in later phases.
+
+---
+
+## Documentation
+
+- [Competitor Research](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/competitor_research.md)
