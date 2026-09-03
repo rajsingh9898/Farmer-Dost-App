@@ -8,6 +8,8 @@ Currently, there is no accessible, farmer-friendly system that allows a small-sc
 
 **Farmer Dost** addresses this gap with a simple, accessible mobile application that lets a farmer scan a security label on any agricultural product and instantly know whether it is genuine or counterfeit, empowering them to make safe purchasing decisions and report fraudulent sellers.
 
+---
+
 ## Objectives
 
 1. To design and develop a mobile application that allows farmers to scan security labels (QR/barcode) on fertilizers and pesticides and verify their authenticity in real time.
@@ -17,19 +19,25 @@ Currently, there is no accessible, farmer-friendly system that allows a small-sc
 5. To design the application with accessibility in mind — simple navigation, minimal text dependency, and an interface usable by farmers with limited digital literacy.
 6. To build a scalable foundation that can later support additional features such as crop advisory, offline verification, and multi-language support.
 
+---
+
 ## MVP Features
 
 | Feature | Description |
-
+|---|---|
 | **Scan** | Farmer opens the app and scans a QR/barcode security label on a fertilizer or pesticide product using their phone camera. |
 | **Verify** | The scanned code is checked against the product database in real time, returning a clear "Genuine" or "Fake/Unrecognized" result with basic product details (name, batch number, manufacturer). |
 | **Report Fake** | If a product is flagged as fake or the farmer suspects fraud, they can submit a report (product code, optional location/notes) to alert authorities and flag the seller. |
 | **Farmer Profile** | A simple profile for each farmer, storing their basic details and a history of previously scanned products for future reference. |
 
-These four features form the core MVP loop: **scan → verify → report if needed → track history** — establishing the essential trust-building function of the app before layering on advanced capabilities like crop advisory or offline sync in later phases.
-
 ---
 
-## Documentation
+## 📚 Week 1 Project Documentation
 
-- [Competitor Research](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/competitor_research.md)
+- [Day 1: Problem & Objectives](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/01_problem_and_objectives.md)
+- [Day 2: Competitor Research](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/02_competitor_research.md)
+- [Day 3: Ground User Research & Interviews](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/03_user_interviews.md)
+- [Day 4: Tech Stack Rationale & Architecture](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/04_tech_stack.md)
+- [Day 5: Dev Environment & Firebase Setup Guide](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/05_dev_environment.md)
+- [Day 6: User Flows & Sequence Diagrams](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/06_user_flows_and_diagrams.md)
+- [Day 7: Week 1 Summary & Project Diary](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/07_week1_summary.md)
