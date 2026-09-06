@@ -4,6 +4,8 @@ Design specification for **Screen 1 (Splash Screen)** and **Screen 2 (Home Scree
 
 ---
 
+
+
 ## Design System Tokens & Guidelines
 
 - **Frame Aspect Ratio**: `375 × 812` (Standard iPhone/Android mobile frame)
@@ -12,6 +14,8 @@ Design specification for **Screen 1 (Splash Screen)** and **Screen 2 (Home Scree
 - **Background**: `#FFFFFF` / Light Gray `#F8F9FA`
 - **Typography**: Inter / Poppins (Sans-serif)
 - **Weights Used**: Regular (`400`) & Medium (`500`) (strictly max 2 weights)
+
+
 
 ---
 
