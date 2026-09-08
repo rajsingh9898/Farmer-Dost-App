@@ -42,3 +42,4 @@ Currently, there is no accessible, farmer-friendly system that allows a small-sc
 - [Day 6: User Flows & Sequence Diagrams](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/06_user_flows_and_diagrams.md)
 - [Day 7: Week 1 Summary & Project Diary](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/07_week1_summary.md)
 - [Day 8: Mobile Screens Design Specs (375x812)](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/08_mobile_screens_design_spec.md)
+- [Day 9: Full-Screen Scan Camera UI Specs](file:///c:/Users/Raj%20Singh/Desktop/Farmer-Dost-app/docs/09_scan_screen_design_spec.md)
