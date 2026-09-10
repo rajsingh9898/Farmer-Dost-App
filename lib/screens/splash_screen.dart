@@ -21,7 +21,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuthAndNavigate() async {
-    // Artificial splash delay for branding preview
+    // 2-second splash screen preview
     await Future.delayed(const Duration(seconds: 2));
 
     if (!mounted) return;
@@ -43,7 +43,6 @@ class _SplashScreenState extends State<SplashScreen> {
         });
       }
     } catch (e) {
-      // Fallback to login screen on error or offline
       _navigateToLogin();
     }
   }
@@ -71,46 +70,58 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.green.shade800,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Logo: Green Shield icon with checkmark
+              Container(
+                width: 72,
+                height: 72,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF2E7D32),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.shield,
+                  size: 40,
+                  color: Colors.white,
+                ),
               ),
-              child: Icon(
-                Icons.verified_sharp,
-                size: 72,
-                color: Colors.green.shade800,
+              const SizedBox(height: 16),
+              // App Title: "Farmer Dost" (22px Medium)
+              const Text(
+                "Farmer Dost",
+                style: TextStyle(
+                  color: Color(0xFF1A1C1E),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              "Farmer Dost",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
+              const SizedBox(height: 6),
+              // Tagline: "Scan. Verify. Trust."
+              const Text(
+                "Scan. Verify. Trust.",
+                style: TextStyle(
+                  color: Color(0xFF74777F),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "Fertilizer & Pesticide Verification",
-              style: TextStyle(
-                color: Colors.green.shade100,
-                fontSize: 16,
+              const SizedBox(height: 48),
+              const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E7D32)),
+                ),
               ),
-            ),
-            const SizedBox(height: 48),
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
