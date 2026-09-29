@@ -13,17 +13,14 @@ class HomeScreen extends StatefulWidget {
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
-
 class _HomeScreenState extends State<HomeScreen> {
   List<ScanModel> _recentScans = [];
   bool _isLoadingScans = true;
-
   @override
   void initState() {
     super.initState();
     _loadRecentScans();
   }
-
   Future<void> _loadRecentScans() async {
     try {
       final userId = AuthService().currentUserId;
