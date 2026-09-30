@@ -38,12 +38,16 @@ class _ScanScreenState extends State<ScanScreen> {
 
     try {
       final product = await FirestoreService().verifyProduct(code, userId: userId);
+      final isGenuine = product != null && product.status.toLowerCase() == 'genuine';
       if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => ResultScreen(
-            productCode: code,
+            isGenuine: isGenuine,
+            productData: product?.toMap(),
+            scannedCode: code,
             product: product,
             connectionError: false,
           ),
@@ -56,8 +60,8 @@ class _ScanScreenState extends State<ScanScreen> {
         context,
         MaterialPageRoute(
           builder: (_) => ResultScreen(
-            productCode: code,
-            product: null,
+            isGenuine: false,
+            scannedCode: code,
             connectionError: true,
             errorMessage: "Can't verify right now, check your connection.",
           ),
