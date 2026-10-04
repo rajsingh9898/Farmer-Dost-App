@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../models/scan_model.dart';
-import '../widgets/status_badge.dart';
 import 'scan_screen.dart';
 import 'profile_screen.dart';
 import 'login_screen.dart';
@@ -13,14 +12,17 @@ class HomeScreen extends StatefulWidget {
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
+
 class _HomeScreenState extends State<HomeScreen> {
   List<ScanModel> _recentScans = [];
   bool _isLoadingScans = true;
+
   @override
   void initState() {
     super.initState();
     _loadRecentScans();
   }
+
   Future<void> _loadRecentScans() async {
     try {
       final userId = AuthService().currentUserId;
@@ -97,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Single Hero Element: 110px Circular Green Scan Button
+                    // Single Hero Element: 115px Circular Green Scan Button
                     InkWell(
                       onTap: () {
                         Navigator.push(
@@ -114,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF2E7D32).withOpacity(0.35),
+                              color: const Color(0xFF2E7D32).withValues(alpha: 0.35),
                               blurRadius: 24,
                               offset: const Offset(0, 10),
                             ),
