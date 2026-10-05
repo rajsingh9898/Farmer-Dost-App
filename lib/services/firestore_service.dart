@@ -123,12 +123,22 @@ class FirestoreService {
   }
 
   /// submitReport(data)
-  /// Writes report data to Firestore "reports" collection
-  Future<void> submitReport(ReportModel data) async {
+  /// Writes report data to Firestore "reports" collection. Accepts Map<String, dynamic> or ReportModel.
+  Future<void> submitReport(dynamic reportData) async {
     try {
+      Map<String, dynamic> data;
+      if (reportData is ReportModel) {
+        data = reportData.toMap();
+      } else if (reportData is Map<String, dynamic>) {
+        data = Map<String, dynamic>.from(reportData);
+        data['timestamp'] ??= FieldValue.serverTimestamp();
+      } else {
+        throw ArgumentError("Invalid report data type");
+      }
+
       await _firestore
           .collection('reports')
-          .add(data.toMap())
+          .add(data)
           .timeout(const Duration(seconds: 6));
     } catch (e) {
       debugPrint('Error submitting report to Firestore: $e');
