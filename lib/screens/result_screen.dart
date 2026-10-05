@@ -289,7 +289,7 @@ class _ResultScreenState extends State<ResultScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => ReportScreen(productCode: widget.scannedCode),
+                              builder: (_) => ReportScreen(scannedCode: widget.scannedCode),
                             ),
                           );
                         },
