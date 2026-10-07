@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 
 void main() async {
@@ -23,18 +24,7 @@ class FarmerDostApp extends StatelessWidget {
     return MaterialApp(
       title: 'Farmer Dost App',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2E7D32), // Forest / Agricultural Green
-          primary: const Color(0xFF2E7D32),
-          secondary: const Color(0xFF1565C0),
-        ),
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-        ),
-      ),
+      theme: appTheme,
       home: const SplashScreen(),
     );
   }

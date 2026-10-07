@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
+import '../theme/app_theme.dart';
 
 class ReportScreen extends StatefulWidget {
   final String scannedCode;
@@ -25,8 +26,6 @@ class _ReportScreenState extends State<ReportScreen> {
   String? _locationString;
   bool _isFetchingLocation = false;
   bool _isSubmitting = false;
-
-  static const Color dangerRed = Color(0xFFD32F2F);
 
   @override
   void initState() {
@@ -96,7 +95,6 @@ class _ReportScreenState extends State<ReportScreen> {
     } catch (e) {
       debugPrint("Geolocator exception: $e");
       if (mounted) {
-        // Handle gracefully: leave location empty, don't crash or block
         setState(() => _isFetchingLocation = false);
       }
     }
@@ -126,7 +124,7 @@ class _ReportScreenState extends State<ReportScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Report submitted, thank you"),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.primary,
           duration: Duration(seconds: 3),
         ),
       );
@@ -139,7 +137,7 @@ class _ReportScreenState extends State<ReportScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.toString()),
-          backgroundColor: dangerRed,
+          backgroundColor: AppColors.danger,
           duration: const Duration(seconds: 4),
         ),
       );
@@ -149,10 +147,10 @@ class _ReportScreenState extends State<ReportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text("Report Counterfeit Product"),
-        backgroundColor: dangerRed,
+        backgroundColor: AppColors.danger,
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -166,18 +164,18 @@ class _ReportScreenState extends State<ReportScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
+                  color: AppColors.danger.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.red.shade200),
+                  border: Border.all(color: AppColors.danger.withValues(alpha: 0.2)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.report_problem_rounded, color: dangerRed, size: 32),
+                    const Icon(Icons.report_problem_rounded, color: AppColors.danger, size: 32),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         "Flagging fake products alerts agricultural authorities and protects fellow farmers.",
-                        style: TextStyle(fontSize: 13, color: Colors.black87),
+                        style: AppStyles.bodyStyle.copyWith(fontSize: 13),
                       ),
                     ),
                   ],
@@ -186,19 +184,19 @@ class _ReportScreenState extends State<ReportScreen> {
               const SizedBox(height: 24),
 
               // Field 1: Read-Only Product Code
-              const Text(
+              Text(
                 "Product Code",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1A1C1E)),
+                style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _codeController,
                 readOnly: true,
-                style: TextStyle(color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+                style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.w600, color: AppColors.textSecondary),
                 decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.qr_code_rounded, color: Colors.grey),
+                  prefixIcon: const Icon(Icons.qr_code_rounded, color: AppColors.textSecondary),
                   filled: true,
-                  fillColor: const Color(0xFFEEEEEE), // Visually styled as locked/disabled
+                  fillColor: const Color(0xFFEEEEEE),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: Colors.grey.shade300),
@@ -212,15 +210,15 @@ class _ReportScreenState extends State<ReportScreen> {
               const SizedBox(height: 20),
 
               // Field 2: Optional Location Pin & Capture Row
-              const Text(
+              Text(
                 "Location (Optional)",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1A1C1E)),
+                style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.surface,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.grey.shade300),
                 ),
@@ -228,15 +226,14 @@ class _ReportScreenState extends State<ReportScreen> {
                   children: [
                     Icon(
                       _locationString != null ? Icons.location_on_rounded : Icons.my_location_rounded,
-                      color: _locationString != null ? dangerRed : Colors.grey.shade700,
+                      color: _locationString != null ? AppColors.danger : AppColors.textSecondary,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         _locationString ?? "No location captured",
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: _locationString != null ? const Color(0xFF1A1C1E) : Colors.grey.shade600,
+                        style: AppStyles.bodyStyle.copyWith(
+                          color: _locationString != null ? AppColors.textPrimary : AppColors.textSecondary,
                           fontWeight: _locationString != null ? FontWeight.w600 : FontWeight.normal,
                         ),
                       ),
@@ -245,15 +242,19 @@ class _ReportScreenState extends State<ReportScreen> {
                       const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: dangerRed),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.danger),
                       )
                     else
                       TextButton.icon(
                         onPressed: _fetchCurrentLocation,
-                        icon: const Icon(Icons.gps_fixed, size: 16, color: dangerRed),
+                        icon: const Icon(Icons.gps_fixed, size: 16, color: AppColors.danger),
                         label: Text(
                           _locationString != null ? "Update" : "Use current location",
-                          style: const TextStyle(color: dangerRed, fontWeight: FontWeight.bold, fontSize: 13),
+                          style: AppStyles.bodyStyle.copyWith(
+                            color: AppColors.danger,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                   ],
@@ -262,27 +263,28 @@ class _ReportScreenState extends State<ReportScreen> {
               const SizedBox(height: 20),
 
               // Field 3: Optional Multiline Note (Max 100 Chars)
-              const Text(
+              Text(
                 "Note (Optional)",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1A1C1E)),
+                style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _noteController,
                 maxLength: 100,
                 maxLines: 3,
+                style: AppStyles.bodyStyle,
                 decoration: InputDecoration(
                   hintText: "Anything you'd like to add (optional)",
-                  hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                  hintStyle: AppStyles.mutedStyle.copyWith(fontSize: 14),
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: AppColors.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: dangerRed, width: 1.5),
+                    borderSide: const BorderSide(color: AppColors.danger, width: 1.5),
                   ),
                 ),
               ),
@@ -302,13 +304,17 @@ class _ReportScreenState extends State<ReportScreen> {
                           height: 22,
                           child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                         )
-                      : const Text(
+                      : Text(
                           "Submit Report",
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: AppStyles.bodyStyle.copyWith(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: dangerRed,
-                    disabledBackgroundColor: dangerRed.withValues(alpha: 0.6),
+                    backgroundColor: AppColors.danger,
+                    disabledBackgroundColor: AppColors.danger.withValues(alpha: 0.6),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),

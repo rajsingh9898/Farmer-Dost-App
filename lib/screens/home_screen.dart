@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../models/scan_model.dart';
+import '../theme/app_theme.dart';
 import 'scan_screen.dart';
 import 'profile_screen.dart';
 import 'login_screen.dart';
@@ -41,42 +43,38 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           "Farmer Dost",
-          style: TextStyle(
-            color: Color(0xFF1A1C1E),
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-          ),
+          style: AppStyles.headingStyle.copyWith(fontSize: 22),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         elevation: 0.5,
         automaticallyImplyLeading: false,
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 16.0),
+            padding: const EdgeInsets.only(right: 12.0),
             child: GestureDetector(
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                  MaterialPageRoute(builder: (_) => ProfileScreen()),
                 );
               },
               child: CircleAvatar(
                 radius: 18,
-                backgroundColor: Colors.green.shade100,
-                child: Icon(
+                backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                child: const Icon(
                   Icons.person,
-                  color: Colors.green.shade800,
+                  color: AppColors.primary,
                   size: 20,
                 ),
               ),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.grey),
+            icon: const Icon(Icons.logout, color: AppColors.textSecondary),
             tooltip: "Logout",
             onPressed: () async {
               await AuthService().signOut();
@@ -112,11 +110,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 115,
                         height: 115,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2E7D32),
+                          color: AppColors.primary,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF2E7D32).withValues(alpha: 0.35),
+                              color: AppColors.primary.withValues(alpha: 0.35),
                               blurRadius: 24,
                               offset: const Offset(0, 10),
                             ),
@@ -130,12 +128,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
+                    Text(
                       "Tap to scan",
-                      style: TextStyle(
+                      style: AppStyles.bodyStyle.copyWith(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1A1C1E),
                       ),
                     ),
                   ],
@@ -147,11 +144,11 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               padding: const EdgeInsets.all(24.0),
               decoration: const BoxDecoration(
-                color: Colors.white,
+                color: AppColors.surface,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black45,
+                    color: Colors.black12,
                     blurRadius: 10,
                     offset: Offset(0, -2),
                   ),
@@ -164,19 +161,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         "Recent scans",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1A1C1E),
-                        ),
+                        style: AppStyles.sectionHeadingStyle.copyWith(fontSize: 18),
                       ),
                       TextButton(
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                            MaterialPageRoute(builder: (_) => ProfileScreen()),
                           );
                         },
                         child: const Text("View All"),
@@ -188,16 +181,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     const Center(
                       child: Padding(
                         padding: EdgeInsets.all(20.0),
-                        child: CircularProgressIndicator(),
+                        child: CircularProgressIndicator(color: AppColors.primary),
                       ),
                     )
                   else if (_recentScans.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16.0),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
                       child: Center(
                         child: Text(
                           "No scans recorded yet.",
-                          style: TextStyle(color: Colors.grey),
+                          style: AppStyles.mutedStyle,
                         ),
                       ),
                     )
@@ -209,7 +202,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final scan = _recentScans[index];
-                        final isGenuine = scan.result == 'genuine';
+                        final isGenuine = scan.result.toLowerCase() == 'genuine';
+                        final formattedDate = DateFormat('MMM d, yyyy').format(scan.timestamp);
 
                         return Container(
                           padding: const EdgeInsets.symmetric(
@@ -224,13 +218,19 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Row(
                             children: [
                               Expanded(
-                                child: Text(
-                                  scan.productName ?? 'Code: ${scan.productCode}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 14,
-                                    color: Color(0xFF1A1C1E),
-                                  ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      scan.productName ?? 'Code: ${scan.productCode}',
+                                      style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.w500),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      formattedDate,
+                                      style: AppStyles.mutedStyle,
+                                    ),
+                                  ],
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -239,8 +239,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ? Icons.check_circle_rounded
                                     : Icons.warning_rounded,
                                 color: isGenuine
-                                    ? const Color(0xFF2E7D32)
-                                    : const Color(0xFFD32F2F),
+                                    ? AppColors.primary
+                                    : AppColors.danger,
                                 size: 22,
                               ),
                             ],

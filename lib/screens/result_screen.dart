@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/product_model.dart';
 import '../widgets/error_card.dart';
+import '../theme/app_theme.dart';
 import 'report_screen.dart';
 import 'scan_screen.dart';
 import 'home_screen.dart';
@@ -29,10 +30,6 @@ class ResultScreen extends StatefulWidget {
 }
 
 class _ResultScreenState extends State<ResultScreen> {
-  // Brand color constants
-  static const Color successGreen = Color(0xFF2E7D32);
-  static const Color dangerRed = Color(0xFFD32F2F);
-
   @override
   void initState() {
     super.initState();
@@ -64,8 +61,8 @@ class _ResultScreenState extends State<ResultScreen> {
   Widget build(BuildContext context) {
     final isSuccess = widget.isGenuine && !widget.connectionError;
     final primaryColor = widget.connectionError
-        ? Colors.amber.shade900
-        : (isSuccess ? successGreen : dangerRed);
+        ? AppColors.caution
+        : (isSuccess ? AppColors.primary : AppColors.danger);
 
     final data = _resolveProductData();
     final name = data['name'] as String? ?? 'Unknown Product';
@@ -73,7 +70,7 @@ class _ResultScreenState extends State<ResultScreen> {
     final manufacturer = data['manufacturer'] as String? ?? 'Unknown Manufacturer';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text("Verification Result"),
         backgroundColor: primaryColor,
@@ -127,11 +124,11 @@ class _ResultScreenState extends State<ResultScreen> {
                     width: 90,
                     height: 90,
                     decoration: BoxDecoration(
-                      color: isSuccess ? successGreen : dangerRed,
+                      color: isSuccess ? AppColors.primary : AppColors.danger,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: (isSuccess ? successGreen : dangerRed).withValues(alpha: 0.3),
+                          color: (isSuccess ? AppColors.primary : AppColors.danger).withValues(alpha: 0.3),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
@@ -148,10 +145,8 @@ class _ResultScreenState extends State<ResultScreen> {
                   // 2. Heading Text (~18-20px Bold)
                   Text(
                     isSuccess ? "Genuine Product" : "Not Recognized",
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isSuccess ? successGreen : dangerRed,
+                    style: AppStyles.headingStyle.copyWith(
+                      color: isSuccess ? AppColors.primary : AppColors.danger,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -162,9 +157,9 @@ class _ResultScreenState extends State<ResultScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.surface,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.green.shade200),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.04),
@@ -178,11 +173,7 @@ class _ResultScreenState extends State<ResultScreen> {
                           Text(
                             name,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1A1C1E),
-                            ),
+                            style: AppStyles.headingStyle.copyWith(fontSize: 18),
                           ),
                           const SizedBox(height: 16),
                           const Divider(),
@@ -201,10 +192,7 @@ class _ResultScreenState extends State<ResultScreen> {
                       child: Text(
                         "This code was not found in our database",
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: Colors.grey.shade700,
-                        ),
+                        style: AppStyles.mutedStyle.copyWith(fontSize: 15),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -212,21 +200,18 @@ class _ResultScreenState extends State<ResultScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.red.shade50,
+                        color: AppColors.danger.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.red.shade200),
+                        border: Border.all(color: AppColors.danger.withValues(alpha: 0.2)),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.qr_code, size: 20, color: dangerRed),
+                          const Icon(Icons.qr_code, size: 20, color: AppColors.danger),
                           const SizedBox(width: 8),
                           Text(
                             "Scanned Code: ${widget.scannedCode}",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1A1C1E),
-                            ),
+                            style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
@@ -251,7 +236,7 @@ class _ResultScreenState extends State<ResultScreen> {
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: successGreen,
+                          backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -299,7 +284,7 @@ class _ResultScreenState extends State<ResultScreen> {
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: dangerRed,
+                          backgroundColor: AppColors.danger,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -356,19 +341,13 @@ class _ResultScreenState extends State<ResultScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.grey,
-          ),
+          style: AppStyles.mutedStyle.copyWith(fontWeight: FontWeight.bold),
         ),
         Flexible(
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
+            style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.w600),
           ),
         ),
       ],
