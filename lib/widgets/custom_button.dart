@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class CustomButton extends StatelessWidget {
   final String label;
@@ -54,9 +55,9 @@ class CustomButton extends StatelessWidget {
                 ],
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: AppStyles.sectionHeadingStyle.copyWith(
+                    color: fg,
                     fontSize: 16,
-                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],

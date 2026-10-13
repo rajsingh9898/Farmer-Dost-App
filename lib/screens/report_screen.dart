@@ -196,14 +196,14 @@ class _ReportScreenState extends State<ReportScreen> {
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.qr_code_rounded, color: AppColors.textSecondary),
                   filled: true,
-                  fillColor: const Color(0xFFEEEEEE),
+                  fillColor: AppColors.textSecondary.withValues(alpha: 0.1),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.2)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.2)),
                   ),
                 ),
               ),
@@ -220,7 +220,7 @@ class _ReportScreenState extends State<ReportScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(color: AppColors.textSecondary.withValues(alpha: 0.2)),
                 ),
                 child: Row(
                   children: [
@@ -280,7 +280,11 @@ class _ReportScreenState extends State<ReportScreen> {
                   fillColor: AppColors.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
+                    borderSide: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.2)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.2)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -306,9 +310,7 @@ class _ReportScreenState extends State<ReportScreen> {
                         )
                       : Text(
                           "Submit Report",
-                          style: AppStyles.bodyStyle.copyWith(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                          style: AppStyles.sectionHeadingStyle.copyWith(
                             color: Colors.white,
                           ),
                         ),

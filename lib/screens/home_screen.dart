@@ -143,14 +143,14 @@ class _HomeScreenState extends State<HomeScreen> {
             // Bottom Section — Recent Scans
             Container(
               padding: const EdgeInsets.all(24.0),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black12,
+                    color: AppColors.textPrimary.withValues(alpha: 0.08),
                     blurRadius: 10,
-                    offset: Offset(0, -2),
+                    offset: const Offset(0, -2),
                   ),
                 ],
               ),
@@ -172,7 +172,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             MaterialPageRoute(builder: (_) => ProfileScreen()),
                           );
                         },
-                        child: const Text("View All"),
+                        child: Text(
+                          "View All",
+                          style: AppStyles.bodyStyle.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -211,9 +217,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             vertical: 12,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFAFAFA),
+                            color: AppColors.background,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFF0F0F0)),
+                            border: Border.all(color: AppColors.textSecondary.withValues(alpha: 0.15)),
                           ),
                           child: Row(
                             children: [

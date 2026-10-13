@@ -231,9 +231,9 @@ class _ResultScreenState extends State<ResultScreen> {
                           );
                         },
                         icon: const Icon(Icons.qr_code_scanner),
-                        label: const Text(
+                        label: Text(
                           "Scan Another",
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: AppStyles.sectionHeadingStyle.copyWith(color: Colors.white),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
@@ -263,7 +263,10 @@ class _ResultScreenState extends State<ResultScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text("Done"),
+                        child: Text(
+                          "Done",
+                          style: AppStyles.sectionHeadingStyle.copyWith(color: AppColors.primary),
+                        ),
                       ),
                     ),
                   ] else ...[
@@ -279,9 +282,9 @@ class _ResultScreenState extends State<ResultScreen> {
                           );
                         },
                         icon: const Icon(Icons.report_problem_rounded),
-                        label: const Text(
+                        label: Text(
                           "Report this product",
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: AppStyles.sectionHeadingStyle.copyWith(color: Colors.white),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.danger,
@@ -305,7 +308,10 @@ class _ResultScreenState extends State<ResultScreen> {
                           );
                         },
                         icon: const Icon(Icons.qr_code_scanner),
-                        label: const Text("Scan Another"),
+                        label: Text(
+                          "Scan Another",
+                          style: AppStyles.sectionHeadingStyle.copyWith(color: AppColors.primary),
+                        ),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(

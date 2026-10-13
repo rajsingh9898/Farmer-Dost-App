@@ -116,7 +116,7 @@ class ProfileScreen extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 // 3. Horizontal Divider
-                const Divider(height: 1, color: Color(0xFFE0E0E0)),
+                Divider(height: 1, color: AppColors.textSecondary.withValues(alpha: 0.2)),
                 const SizedBox(height: 20),
 
                 // 4. "Scan history" Section Label
@@ -165,7 +165,7 @@ class ProfileScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: AppColors.surface,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFEEEEEE)),
+                          border: Border.all(color: AppColors.textSecondary.withValues(alpha: 0.15)),
                         ),
                         child: Row(
                           children: [

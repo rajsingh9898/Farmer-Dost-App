@@ -3,6 +3,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/corner_brackets_painter.dart';
+import '../theme/app_theme.dart';
 import 'result_screen.dart';
 
 class ScanScreen extends StatefulWidget {
@@ -83,7 +84,7 @@ class _ScanScreenState extends State<ScanScreen> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text("Enter Product Code Manually"),
+          title: Text("Enter Product Code Manually", style: AppStyles.headingStyle.copyWith(fontSize: 18)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -118,7 +119,7 @@ class _ScanScreenState extends State<ScanScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text("Cancel"),
+              child: Text("Cancel", style: AppStyles.bodyStyle.copyWith(color: AppColors.textSecondary)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -128,8 +129,11 @@ class _ScanScreenState extends State<ScanScreen> {
                   _processProductCode(code);
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade800),
-              child: const Text("Verify Code", style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              child: Text("Verify Code", style: AppStyles.bodyStyle.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -157,32 +161,32 @@ class _ScanScreenState extends State<ScanScreen> {
               onDetect: _onDetect,
               errorBuilder: (context, error, child) {
                 return Container(
-                  color: const Color(0xFF1A1C1E),
+                  color: AppColors.textPrimary,
                   child: Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.camera_alt_outlined, size: 64, color: Colors.grey),
+                          const Icon(Icons.camera_alt_outlined, size: 64, color: AppColors.textSecondary),
                           const SizedBox(height: 16),
-                          const Text(
+                          Text(
                             "Camera Viewfinder Active",
-                            style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+                            style: AppStyles.headingStyle.copyWith(color: Colors.white),
                           ),
                           const SizedBox(height: 8),
-                          const Text(
+                          Text(
                             "Tap below to test QR codes in emulator/desktop environment.",
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey),
+                            style: AppStyles.mutedStyle.copyWith(color: Colors.white70),
                           ),
                           const SizedBox(height: 20),
                           ElevatedButton.icon(
                             onPressed: _showManualEntryDialog,
                             icon: const Icon(Icons.keyboard),
-                            label: const Text("Enter Code Manually"),
+                            label: Text("Enter Code Manually", style: AppStyles.bodyStyle.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green.shade700,
+                              backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
                             ),
                           ),
@@ -221,11 +225,10 @@ class _ScanScreenState extends State<ScanScreen> {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: const Text(
+                          child: Text(
                             "Tap for light",
-                            style: TextStyle(
-                              color: Colors.black87,
-                              fontSize: 12,
+                            style: AppStyles.mutedStyle.copyWith(
+                              color: AppColors.textPrimary,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -235,7 +238,7 @@ class _ScanScreenState extends State<ScanScreen> {
                     IconButton(
                       icon: Icon(
                         _isTorchOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
-                        color: _isTorchOn ? Colors.yellow : Colors.white,
+                        color: _isTorchOn ? AppColors.caution : Colors.white,
                         size: 26,
                       ),
                       tooltip: "Toggle Torch",
@@ -259,9 +262,7 @@ class _ScanScreenState extends State<ScanScreen> {
               height: 210,
               child: CustomPaint(
                 painter: CornerBracketsPainter(
-                  color: _isProcessing
-                      ? const Color(0xFF00E676) // Bright Neon Green in detecting state
-                      : const Color(0xFF2E7D32), // Standard Agriculture Green
+                  color: AppColors.primary,
                   strokeWidth: 4.0,
                   cornerLength: 40.0,
                   borderRadius: 14.0,
@@ -279,7 +280,7 @@ class _ScanScreenState extends State<ScanScreen> {
               children: [
                 Text(
                   "Point camera at the QR code",
-                  style: TextStyle(
+                  style: AppStyles.bodyStyle.copyWith(
                     color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
@@ -293,7 +294,7 @@ class _ScanScreenState extends State<ScanScreen> {
                   icon: const Icon(Icons.brightness_medium, color: Colors.white60, size: 16),
                   label: Text(
                     _showLowLightHint ? "Hide low-light hint" : "Simulate low-light state",
-                    style: const TextStyle(color: Colors.white60, fontSize: 12),
+                    style: AppStyles.mutedStyle.copyWith(color: Colors.white60),
                   ),
                 ),
               ],
@@ -304,15 +305,15 @@ class _ScanScreenState extends State<ScanScreen> {
           if (_isProcessing)
             Container(
               color: Colors.black54,
-              child: const Center(
+              child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(color: Color(0xFF00E676)),
-                    SizedBox(height: 16),
+                    const CircularProgressIndicator(color: AppColors.primary),
+                    const SizedBox(height: 16),
                     Text(
                       "Verifying Product Code...",
-                      style: TextStyle(color: Colors.white, fontSize: 18),
+                      style: AppStyles.headingStyle.copyWith(color: Colors.white),
                     ),
                   ],
                 ),
