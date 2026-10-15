@@ -26,8 +26,31 @@ class AppColors {
   static const Color surface = Colors.white;
 }
 
+class AppDimensions {
+  /// Screen padding
+  static const double screenPadding = 24.0;
+  static const double screenPaddingSmall = 16.0;
+
+  /// Card and container border radius
+  static const double cardRadius = 16.0;
+  static const double smallRadius = 12.0;
+  static const double pillRadius = 24.0;
+
+  /// Button dimensions
+  static const double buttonRadius = 12.0;
+  static const double buttonHeight = 52.0;
+  static const EdgeInsets buttonPadding = EdgeInsets.symmetric(vertical: 14.0, horizontal: 24.0);
+
+  /// Consistent Spacing steps
+  static const double spaceTiny = 4.0;
+  static const double spaceSmall = 8.0;
+  static const double spaceMedium = 16.0;
+  static const double spaceLarge = 24.0;
+  static const double spaceXLarge = 32.0;
+}
+
 class AppStyles {
-  /// Heading TextStyle (Inter / Poppins weight 600)
+  /// Heading TextStyle (Inter weight 600)
   static TextStyle headingStyle = GoogleFonts.inter(
     fontSize: 20,
     fontWeight: FontWeight.w600,
@@ -41,7 +64,7 @@ class AppStyles {
     color: AppColors.textPrimary,
   );
 
-  /// Body TextStyle (Inter / Poppins weight 400-500)
+  /// Body TextStyle (Inter weight 400-500)
   static TextStyle bodyStyle = GoogleFonts.inter(
     fontSize: 14,
     fontWeight: FontWeight.w400,
@@ -72,6 +95,31 @@ final ThemeData appTheme = ThemeData(
     titleMedium: AppStyles.sectionHeadingStyle,
     bodyMedium: AppStyles.bodyStyle,
     bodySmall: AppStyles.mutedStyle,
+  ),
+  elevatedButtonTheme: ElevatedButtonThemeData(
+    style: ElevatedButton.styleFrom(
+      backgroundColor: AppColors.primary,
+      foregroundColor: Colors.white,
+      padding: AppDimensions.buttonPadding,
+      minimumSize: const Size.fromHeight(AppDimensions.buttonHeight),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+      ),
+      elevation: 2,
+      textStyle: AppStyles.sectionHeadingStyle.copyWith(color: Colors.white),
+    ),
+  ),
+  outlinedButtonTheme: OutlinedButtonThemeData(
+    style: OutlinedButton.styleFrom(
+      foregroundColor: AppColors.primary,
+      padding: AppDimensions.buttonPadding,
+      minimumSize: const Size.fromHeight(AppDimensions.buttonHeight),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+      ),
+      side: const BorderSide(color: AppColors.primary, width: 1.5),
+      textStyle: AppStyles.sectionHeadingStyle.copyWith(color: AppColors.primary),
+    ),
   ),
   appBarTheme: AppBarTheme(
     backgroundColor: AppColors.surface,

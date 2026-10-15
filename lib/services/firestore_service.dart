@@ -123,7 +123,7 @@ class FirestoreService {
   }
 
   /// submitReport(data)
-  /// Writes report data to Firestore "reports" collection. Accepts Map<String, dynamic> or ReportModel.
+  /// Writes report data to Firestore "reports" collection. Accepts `Map<String, dynamic>` or ReportModel.
   Future<void> submitReport(dynamic reportData) async {
     try {
       Map<String, dynamic> data;

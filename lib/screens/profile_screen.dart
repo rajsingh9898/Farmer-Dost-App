@@ -79,11 +79,11 @@ class ProfileScreen extends StatelessWidget {
           final farmerPhone = profile?.phone.isNotEmpty == true ? profile!.phone : 'Phone not provided';
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(20.0),
+            padding: const EdgeInsets.all(AppDimensions.screenPadding),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const SizedBox(height: 12),
+                const SizedBox(height: AppDimensions.spaceMedium),
 
                 // 1. Avatar Circle (Green fill, Person icon) Centered
                 Container(
@@ -99,7 +99,7 @@ class ProfileScreen extends StatelessWidget {
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: AppDimensions.spaceMedium),
 
                 // 2. Farmer's Name (bold, ~16px) & Phone Number (muted, smaller)
                 Text(
@@ -107,17 +107,17 @@ class ProfileScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: AppStyles.headingStyle.copyWith(fontSize: 16),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppDimensions.spaceTiny),
                 Text(
                   farmerPhone,
                   textAlign: TextAlign.center,
                   style: AppStyles.mutedStyle,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppDimensions.spaceLarge),
 
                 // 3. Horizontal Divider
                 Divider(height: 1, color: AppColors.textSecondary.withValues(alpha: 0.2)),
-                const SizedBox(height: 20),
+                const SizedBox(height: AppDimensions.spaceLarge),
 
                 // 4. "Scan history" Section Label
                 Align(
@@ -127,7 +127,7 @@ class ProfileScreen extends StatelessWidget {
                     style: AppStyles.sectionHeadingStyle,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppDimensions.spaceSmall + 4),
 
                 // 5. Scrollable List of Past Scans (or Empty State)
                 if (scans.isEmpty) ...[
@@ -140,7 +140,7 @@ class ProfileScreen extends StatelessWidget {
                           size: 48,
                           color: AppColors.textSecondary,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: AppDimensions.spaceSmall),
                         Text(
                           "No scans yet",
                           style: AppStyles.mutedStyle.copyWith(fontSize: 14),
@@ -160,11 +160,14 @@ class ProfileScreen extends StatelessWidget {
                       final productName = scan.productName ?? 'Product Code: ${scan.productCode}';
 
                       return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        margin: const EdgeInsets.only(bottom: AppDimensions.spaceSmall),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppDimensions.screenPaddingSmall,
+                          vertical: AppDimensions.spaceSmall + 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
                           border: Border.all(color: AppColors.textSecondary.withValues(alpha: 0.15)),
                         ),
                         child: Row(
@@ -186,7 +189,7 @@ class ProfileScreen extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: AppDimensions.spaceSmall + 4),
                             // Status Icon: Green checkmark for genuine, Red warning for fake/unrecognized
                             Icon(
                               isGenuine ? Icons.check_circle_rounded : Icons.warning_rounded,

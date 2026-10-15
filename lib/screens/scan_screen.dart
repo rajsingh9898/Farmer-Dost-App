@@ -84,21 +84,26 @@ class _ScanScreenState extends State<ScanScreen> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
+          ),
           title: Text("Enter Product Code Manually", style: AppStyles.headingStyle.copyWith(fontSize: 18)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: _manualCodeController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: "QR/Barcode Code",
                   hintText: "e.g. GENUINE-123 or FAKE-456",
-                  border: OutlineInputBorder(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppDimensions.spaceMedium),
               Wrap(
-                spacing: 8,
+                spacing: AppDimensions.spaceSmall,
                 children: [
                   ActionChip(
                     label: const Text("GENUINE-123"),
@@ -132,6 +137,9 @@ class _ScanScreenState extends State<ScanScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                ),
               ),
               child: Text("Verify Code", style: AppStyles.bodyStyle.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
@@ -164,23 +172,23 @@ class _ScanScreenState extends State<ScanScreen> {
                   color: AppColors.textPrimary,
                   child: Center(
                     child: Padding(
-                      padding: const EdgeInsets.all(24.0),
+                      padding: const EdgeInsets.all(AppDimensions.screenPadding),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(Icons.camera_alt_outlined, size: 64, color: AppColors.textSecondary),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppDimensions.spaceMedium),
                           Text(
                             "Camera Viewfinder Active",
                             style: AppStyles.headingStyle.copyWith(color: Colors.white),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppDimensions.spaceSmall),
                           Text(
                             "Tap below to test QR codes in emulator/desktop environment.",
                             textAlign: TextAlign.center,
                             style: AppStyles.mutedStyle.copyWith(color: Colors.white70),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: AppDimensions.spaceLarge),
                           ElevatedButton.icon(
                             onPressed: _showManualEntryDialog,
                             icon: const Icon(Icons.keyboard),
@@ -188,6 +196,10 @@ class _ScanScreenState extends State<ScanScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               foregroundColor: Colors.white,
+                              padding: AppDimensions.buttonPadding,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                              ),
                             ),
                           ),
                         ],

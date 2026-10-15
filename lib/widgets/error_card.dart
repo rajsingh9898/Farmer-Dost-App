@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class ErrorCard extends StatelessWidget {
   final String message;
@@ -13,52 +14,57 @@ class ErrorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.amber.shade50,
+      color: AppColors.caution.withValues(alpha: 0.1),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.amber.shade400, width: 1.5),
+        borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
+        side: BorderSide(color: AppColors.caution.withValues(alpha: 0.4), width: 1.5),
       ),
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppDimensions.screenPaddingSmall,
+        vertical: AppDimensions.spaceSmall,
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(AppDimensions.screenPadding),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            const Icon(
               Icons.wifi_off_rounded,
               size: 48,
-              color: Colors.amber.shade900,
+              color: AppColors.caution,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppDimensions.spaceSmall),
             Text(
               "Connection Error",
-              style: TextStyle(
+              style: AppStyles.headingStyle.copyWith(
                 fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.amber.shade900,
+                color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppDimensions.spaceSmall),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.black87,
+              style: AppStyles.bodyStyle.copyWith(
+                color: AppColors.textSecondary,
               ),
             ),
             if (onRetry != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: AppDimensions.spaceMedium),
               ElevatedButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: const Text("Retry Verification"),
+                label: Text(
+                  "Retry Verification",
+                  style: AppStyles.sectionHeadingStyle.copyWith(color: Colors.white),
+                ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.amber.shade800,
+                  backgroundColor: AppColors.caution,
                   foregroundColor: Colors.white,
+                  padding: AppDimensions.buttonPadding,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
                   ),
                 ),
               ),

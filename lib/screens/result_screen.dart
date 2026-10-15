@@ -80,7 +80,10 @@ class _ResultScreenState extends State<ResultScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimensions.screenPadding,
+              vertical: AppDimensions.spaceLarge,
+            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -96,9 +99,10 @@ class _ResultScreenState extends State<ResultScreen> {
                       );
                     },
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppDimensions.spaceLarge),
                   SizedBox(
                     width: double.infinity,
+                    height: AppDimensions.buttonHeight,
                     child: OutlinedButton(
                       onPressed: () {
                         Navigator.pushAndRemoveUntil(
@@ -108,9 +112,9 @@ class _ResultScreenState extends State<ResultScreen> {
                         );
                       },
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: AppDimensions.buttonPadding,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
                         ),
                       ),
                       child: const Text("Back to Home"),
@@ -140,7 +144,7 @@ class _ResultScreenState extends State<ResultScreen> {
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: AppDimensions.spaceMedium),
 
                   // 2. Heading Text (~18-20px Bold)
                   Text(
@@ -149,16 +153,16 @@ class _ResultScreenState extends State<ResultScreen> {
                       color: isSuccess ? AppColors.primary : AppColors.danger,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppDimensions.spaceMedium),
 
                   // 3. Content Container / Subtext
                   if (isSuccess) ...[
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(AppDimensions.screenPaddingSmall + 4),
                       decoration: BoxDecoration(
                         color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
                         border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                         boxShadow: [
                           BoxShadow(
@@ -175,40 +179,40 @@ class _ResultScreenState extends State<ResultScreen> {
                             textAlign: TextAlign.center,
                             style: AppStyles.headingStyle.copyWith(fontSize: 18),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppDimensions.spaceMedium),
                           const Divider(),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: AppDimensions.spaceSmall + 4),
                           _buildDetailRow("Batch Number", batch),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: AppDimensions.spaceSmall + 2),
                           _buildDetailRow("Manufacturer", manufacturer),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: AppDimensions.spaceSmall + 2),
                           _buildDetailRow("Product Code", widget.scannedCode),
                         ],
                       ),
                     ),
                   ] else ...[
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      padding: const EdgeInsets.symmetric(horizontal: AppDimensions.screenPaddingSmall),
                       child: Text(
                         "This code was not found in our database",
                         textAlign: TextAlign.center,
                         style: AppStyles.mutedStyle.copyWith(fontSize: 15),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppDimensions.spaceMedium),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(AppDimensions.screenPaddingSmall),
                       decoration: BoxDecoration(
                         color: AppColors.danger.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
                         border: Border.all(color: AppColors.danger.withValues(alpha: 0.2)),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(Icons.qr_code, size: 20, color: AppColors.danger),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: AppDimensions.spaceSmall),
                           Text(
                             "Scanned Code: ${widget.scannedCode}",
                             style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.w600),
@@ -217,12 +221,13 @@ class _ResultScreenState extends State<ResultScreen> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 32),
+                  const SizedBox(height: AppDimensions.spaceXLarge),
 
                   // 4. Action Buttons
                   if (isSuccess) ...[
                     SizedBox(
                       width: double.infinity,
+                      height: AppDimensions.buttonHeight,
                       child: ElevatedButton.icon(
                         onPressed: () {
                           Navigator.pushReplacement(
@@ -238,17 +243,18 @@ class _ResultScreenState extends State<ResultScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: AppDimensions.buttonPadding,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
                           ),
                           elevation: 2,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppDimensions.spaceSmall + 4),
                     SizedBox(
                       width: double.infinity,
+                      height: AppDimensions.buttonHeight,
                       child: OutlinedButton(
                         onPressed: () {
                           Navigator.pushAndRemoveUntil(
@@ -258,9 +264,9 @@ class _ResultScreenState extends State<ResultScreen> {
                           );
                         },
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: AppDimensions.buttonPadding,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
                           ),
                         ),
                         child: Text(
@@ -272,6 +278,7 @@ class _ResultScreenState extends State<ResultScreen> {
                   ] else ...[
                     SizedBox(
                       width: double.infinity,
+                      height: AppDimensions.buttonHeight,
                       child: ElevatedButton.icon(
                         onPressed: () {
                           Navigator.push(
@@ -289,17 +296,18 @@ class _ResultScreenState extends State<ResultScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.danger,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: AppDimensions.buttonPadding,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
                           ),
                           elevation: 2,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppDimensions.spaceSmall + 4),
                     SizedBox(
                       width: double.infinity,
+                      height: AppDimensions.buttonHeight,
                       child: OutlinedButton.icon(
                         onPressed: () {
                           Navigator.pushReplacement(
@@ -313,14 +321,14 @@ class _ResultScreenState extends State<ResultScreen> {
                           style: AppStyles.sectionHeadingStyle.copyWith(color: AppColors.primary),
                         ),
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: AppDimensions.buttonPadding,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppDimensions.spaceSmall + 4),
                     TextButton(
                       onPressed: () {
                         Navigator.pushAndRemoveUntil(
@@ -329,7 +337,13 @@ class _ResultScreenState extends State<ResultScreen> {
                           (route) => false,
                         );
                       },
-                      child: const Text("Back to Home"),
+                      child: Text(
+                        "Back to Home",
+                        style: AppStyles.bodyStyle.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ],

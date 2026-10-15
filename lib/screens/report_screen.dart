@@ -9,7 +9,7 @@ import '../theme/app_theme.dart';
 class ReportScreen extends StatefulWidget {
   final String scannedCode;
 
-  ReportScreen({
+  const ReportScreen({
     super.key,
     String? scannedCode,
     String? productCode,
@@ -156,22 +156,22 @@ class _ReportScreenState extends State<ReportScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(AppDimensions.screenPadding),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Alert Context Card
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppDimensions.screenPaddingSmall),
                 decoration: BoxDecoration(
                   color: AppColors.danger.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
                   border: Border.all(color: AppColors.danger.withValues(alpha: 0.2)),
                 ),
                 child: Row(
                   children: [
                     const Icon(Icons.report_problem_rounded, color: AppColors.danger, size: 32),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppDimensions.spaceSmall + 4),
                     Expanded(
                       child: Text(
                         "Flagging fake products alerts agricultural authorities and protects fellow farmers.",
@@ -181,14 +181,14 @@ class _ReportScreenState extends State<ReportScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppDimensions.spaceLarge),
 
               // Field 1: Read-Only Product Code
               Text(
                 "Product Code",
                 style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppDimensions.spaceSmall),
               TextFormField(
                 controller: _codeController,
                 readOnly: true,
@@ -198,28 +198,31 @@ class _ReportScreenState extends State<ReportScreen> {
                   filled: true,
                   fillColor: AppColors.textSecondary.withValues(alpha: 0.1),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
                     borderSide: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.2)),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
                     borderSide: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.2)),
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppDimensions.spaceMedium + 4),
 
               // Field 2: Optional Location Pin & Capture Row
               Text(
                 "Location (Optional)",
                 style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppDimensions.spaceSmall),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimensions.screenPaddingSmall,
+                  vertical: AppDimensions.spaceSmall + 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
                   border: Border.all(color: AppColors.textSecondary.withValues(alpha: 0.2)),
                 ),
                 child: Row(
@@ -228,7 +231,7 @@ class _ReportScreenState extends State<ReportScreen> {
                       _locationString != null ? Icons.location_on_rounded : Icons.my_location_rounded,
                       color: _locationString != null ? AppColors.danger : AppColors.textSecondary,
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppDimensions.spaceSmall + 4),
                     Expanded(
                       child: Text(
                         _locationString ?? "No location captured",
@@ -260,14 +263,14 @@ class _ReportScreenState extends State<ReportScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppDimensions.spaceMedium + 4),
 
               // Field 3: Optional Multiline Note (Max 100 Chars)
               Text(
                 "Note (Optional)",
                 style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppDimensions.spaceSmall),
               TextFormField(
                 controller: _noteController,
                 maxLength: 100,
@@ -279,24 +282,25 @@ class _ReportScreenState extends State<ReportScreen> {
                   filled: true,
                   fillColor: AppColors.surface,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
                     borderSide: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.2)),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
                     borderSide: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.2)),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
                     borderSide: const BorderSide(color: AppColors.danger, width: 1.5),
                   ),
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: AppDimensions.spaceLarge),
 
               // Submit Button: Full-Width Danger Red
               SizedBox(
                 width: double.infinity,
+                height: AppDimensions.buttonHeight,
                 child: ElevatedButton.icon(
                   onPressed: _isSubmitting ? null : _submitReport,
                   icon: _isSubmitting
@@ -317,9 +321,9 @@ class _ReportScreenState extends State<ReportScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.danger,
                     disabledBackgroundColor: AppColors.danger.withValues(alpha: 0.6),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: AppDimensions.buttonPadding,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
                     ),
                     elevation: 2,
                   ),

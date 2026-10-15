@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../theme/app_theme.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
 
@@ -70,7 +71,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surface,
       body: SafeArea(
         child: Center(
           child: Column(
@@ -81,7 +82,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 width: 72,
                 height: 72,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF2E7D32),
+                  color: AppColors.primary,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -90,34 +91,30 @@ class _SplashScreenState extends State<SplashScreen> {
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppDimensions.spaceMedium),
               // App Title: "Farmer Dost" (22px Medium)
-              const Text(
+              Text(
                 "Farmer Dost",
-                style: TextStyle(
-                  color: Color(0xFF1A1C1E),
+                style: AppStyles.headingStyle.copyWith(
                   fontSize: 22,
-                  fontWeight: FontWeight.w600,
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: AppDimensions.spaceTiny),
               // Tagline: "Scan. Verify. Trust."
-              const Text(
+              Text(
                 "Scan. Verify. Trust.",
-                style: TextStyle(
-                  color: Color(0xFF74777F),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
+                style: AppStyles.bodyStyle.copyWith(
+                  color: AppColors.textSecondary,
                 ),
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: AppDimensions.spaceXLarge + 16),
               const SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2E7D32)),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
                 ),
               ),
             ],
