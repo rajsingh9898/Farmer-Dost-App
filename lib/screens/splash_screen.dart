@@ -11,18 +11,14 @@ class SplashScreen extends StatefulWidget {
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
-
 class _SplashScreenState extends State<SplashScreen> {
   StreamSubscription? _authSub;
-
   @override
   void initState() {
     super.initState();
     _checkAuthAndNavigate();
   }
-
   Future<void> _checkAuthAndNavigate() async {
-    // 2-second splash screen preview
     await Future.delayed(const Duration(seconds: 2));
 
     if (!mounted) return;
