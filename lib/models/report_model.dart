@@ -5,7 +5,9 @@ class ReportModel {
   final String productCode;
   final String userId;
   final String? location;
+  final GeoPoint? geoPoint;
   final String? note;
+  final String status; // 'pending', 'reviewed', 'confirmed'
   final DateTime timestamp;
 
   ReportModel({
@@ -13,7 +15,9 @@ class ReportModel {
     required this.productCode,
     required this.userId,
     this.location,
+    this.geoPoint,
     this.note,
+    this.status = 'pending',
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 
@@ -28,12 +32,22 @@ class ReportModel {
       parsedTime = DateTime.now();
     }
 
+    String? locationStr = map['location'] as String?;
+    GeoPoint? gp;
+    final rawLoc = map['location'];
+    if (rawLoc is GeoPoint) {
+      gp = rawLoc;
+      locationStr = 'Lat: ${rawLoc.latitude.toStringAsFixed(2)}, Lng: ${rawLoc.longitude.toStringAsFixed(2)}';
+    }
+
     return ReportModel(
       id: docId,
       productCode: map['productCode'] as String? ?? '',
       userId: map['userId'] as String? ?? '',
-      location: map['location'] as String?,
+      location: locationStr,
+      geoPoint: gp,
       note: map['note'] as String?,
+      status: map['status'] as String? ?? 'pending',
       timestamp: parsedTime,
     );
   }
@@ -42,8 +56,12 @@ class ReportModel {
     return {
       'productCode': productCode,
       'userId': userId,
-      if (location != null && location!.isNotEmpty) 'location': location,
+      if (geoPoint != null)
+        'location': geoPoint
+      else if (location != null && location!.isNotEmpty)
+        'location': location,
       if (note != null && note!.isNotEmpty) 'note': note,
+      'status': status,
       'timestamp': FieldValue.serverTimestamp(),
     };
   }

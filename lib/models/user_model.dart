@@ -4,12 +4,16 @@ class UserModel {
   final String uid;
   final String name;
   final String phone;
+  final String language; // 'en', 'hi', 'pa'
+  final String? district;
   final DateTime createdAt;
 
   UserModel({
     required this.uid,
     required this.name,
     required this.phone,
+    this.language = 'en',
+    this.district,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -28,6 +32,8 @@ class UserModel {
       uid: uid,
       name: map['name'] as String? ?? 'Farmer',
       phone: map['phone'] as String? ?? '',
+      language: map['language'] as String? ?? 'en',
+      district: map['district'] as String?,
       createdAt: parsedTime,
     );
   }
@@ -37,6 +43,8 @@ class UserModel {
       'uid': uid,
       'name': name,
       'phone': phone,
+      'language': language,
+      if (district != null) 'district': district,
       'createdAt': FieldValue.serverTimestamp(),
     };
   }
