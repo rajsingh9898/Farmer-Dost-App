@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
+import '../models/report_model.dart';
 import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
@@ -24,6 +25,7 @@ class _ReportScreenState extends State<ReportScreen> {
   final TextEditingController _noteController = TextEditingController();
 
   String? _locationString;
+  GeoPoint? _geoPoint;
   bool _isFetchingLocation = false;
   bool _isSubmitting = false;
 
@@ -88,6 +90,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
       if (mounted) {
         setState(() {
+          _geoPoint = GeoPoint(position.latitude, position.longitude);
           _locationString = "Lat: ${position.latitude.toStringAsFixed(2)}, Lng: ${position.longitude.toStringAsFixed(2)}";
           _isFetchingLocation = false;
         });
@@ -108,13 +111,14 @@ class _ReportScreenState extends State<ReportScreen> {
     final currentUid = FirebaseAuth.instance.currentUser?.uid ?? AuthService().currentUserId;
     final noteText = _noteController.text.trim();
 
-    final reportPayload = <String, dynamic>{
-      'productCode': widget.scannedCode,
-      'userId': currentUid,
-      'location': _locationString,
-      'note': noteText.isNotEmpty ? noteText : null,
-      'timestamp': FieldValue.serverTimestamp(),
-    };
+    final reportPayload = ReportModel(
+      productCode: widget.scannedCode,
+      userId: currentUid,
+      location: _locationString,
+      geoPoint: _geoPoint,
+      note: noteText.isNotEmpty ? noteText : null,
+      status: 'pending',
+    );
 
     try {
       await FirestoreService().submitReport(reportPayload);

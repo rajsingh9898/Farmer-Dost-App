@@ -5,6 +5,7 @@ import '../models/product_model.dart';
 import '../models/report_model.dart';
 import '../models/user_model.dart';
 import '../models/scan_model.dart';
+import '../data/sample_products.dart';
 
 class FirestoreConnectionException implements Exception {
   final String message;
@@ -168,6 +169,8 @@ class FirestoreService {
             uid: userId,
             name: 'Harpreet Singh (Farmer)',
             phone: '+91 98765 43210',
+            language: 'hi',
+            district: 'Ludhiana, Punjab',
             createdAt: DateTime.now().subtract(const Duration(days: 30)),
           );
         }
@@ -180,6 +183,8 @@ class FirestoreService {
           uid: userId,
           name: 'Harpreet Singh (Farmer)',
           phone: '+91 98765 43210',
+          language: 'hi',
+          district: 'Ludhiana, Punjab',
           createdAt: DateTime.now().subtract(const Duration(days: 30)),
         );
       }
@@ -215,24 +220,51 @@ class FirestoreService {
     }
   }
 
+  /// Seeds the 20 sample products into Firestore 'products' collection.
+  /// Uses batch writes with the product code as the document ID ($O(1)$ direct lookup).
+  Future<int> seedSampleProducts() async {
+    try {
+      final batch = _firestore.batch();
+      for (final product in sampleProductsCatalog) {
+        final docRef = _firestore.collection('products').doc(product.code);
+        batch.set(docRef, product.toMap());
+      }
+      await batch.commit().timeout(const Duration(seconds: 10));
+      debugPrint('Successfully seeded ${sampleProductsCatalog.length} sample products into Firestore.');
+      return sampleProductsCatalog.length;
+    } catch (e) {
+      debugPrint('Error or offline during product seeding: $e');
+      if (useDemoFallbackIfOffline) {
+        debugPrint('Seeding marked complete in local demo mode.');
+        return sampleProductsCatalog.length;
+      }
+      throw FirestoreConnectionException("Failed to seed sample products: $e");
+    }
+  }
+
   // --- Demo Mock Helpers for Offline / Testing Verification ---
   ProductModel? _getDemoProduct(String code) {
     final cleanCode = code.trim().toUpperCase();
+
+    // Check against 20 sample catalog products
+    for (final product in sampleProductsCatalog) {
+      if (product.code.toUpperCase() == cleanCode) {
+        return product;
+      }
+    }
+
     if (cleanCode == 'GENUINE-123' || cleanCode == 'UREA-99' || cleanCode.contains('GENUINE')) {
-      return ProductModel(
-        code: code,
-        name: 'KRIBHCO Neem Coated Urea 50kg',
-        batch: 'BATCH-2026-99A',
-        manufacturer: 'Krishak Bharati Cooperative Ltd',
-        status: 'genuine',
-      );
+      return sampleProductsCatalog.first;
     } else if (cleanCode == 'FAKE-456' || cleanCode == 'FAKE-9999' || cleanCode.contains('FAKE')) {
       return ProductModel(
         code: code,
         name: 'Counterfeit Urea Mix',
         batch: 'FAKE-BATCH-X',
         manufacturer: 'Unknown / Suspicious Vendor',
+        type: 'fertilizer',
         status: 'fake',
+        manufactureDate: DateTime(2025, 1, 1),
+        expiryDate: DateTime(2026, 1, 1),
       );
     } else if (cleanCode == 'ERROR-500' || cleanCode.contains('ERROR')) {
       throw FirestoreConnectionException("Can't verify right now, check your connection.");

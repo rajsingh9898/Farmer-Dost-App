@@ -39,7 +39,7 @@ class _ScanScreenState extends State<ScanScreen> {
 
     try {
       final product = await FirestoreService().verifyProduct(code, userId: userId);
-      final isGenuine = product != null && product.status.toLowerCase() == 'genuine';
+      final isGenuine = product != null && product.isGenuine;
       if (!mounted) return;
 
       Navigator.pushReplacement(
@@ -104,10 +104,23 @@ class _ScanScreenState extends State<ScanScreen> {
               const SizedBox(height: AppDimensions.spaceMedium),
               Wrap(
                 spacing: AppDimensions.spaceSmall,
+                runSpacing: 4,
                 children: [
                   ActionChip(
                     label: const Text("GENUINE-123"),
                     onPressed: () => _manualCodeController.text = "GENUINE-123",
+                  ),
+                  ActionChip(
+                    label: const Text("IFFCO-DAP-50KG"),
+                    onPressed: () => _manualCodeController.text = "IFFCO-DAP-50KG",
+                  ),
+                  ActionChip(
+                    label: const Text("BAYER-CORAGEN"),
+                    onPressed: () => _manualCodeController.text = "BAYER-CORAGEN",
+                  ),
+                  ActionChip(
+                    label: const Text("EXPIRED-CHLORPYRIFOS"),
+                    onPressed: () => _manualCodeController.text = "EXPIRED-CHLORPYRIFOS",
                   ),
                   ActionChip(
                     label: const Text("FAKE-456"),

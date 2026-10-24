@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/product_model.dart';
 import '../widgets/error_card.dart';
 import '../theme/app_theme.dart';
@@ -59,15 +61,37 @@ class _ResultScreenState extends State<ResultScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isSuccess = widget.isGenuine && !widget.connectionError;
-    final primaryColor = widget.connectionError
-        ? AppColors.caution
-        : (isSuccess ? AppColors.primary : AppColors.danger);
-
     final data = _resolveProductData();
     final name = data['name'] as String? ?? 'Unknown Product';
     final batch = data['batch'] as String? ?? 'N/A';
     final manufacturer = data['manufacturer'] as String? ?? 'Unknown Manufacturer';
+    final type = (data['type'] as String? ?? 'fertilizer').toLowerCase();
+    final dosage = data['dosage'] as String?;
+
+    DateTime? expiryDate;
+    if (widget.product?.expiryDate != null) {
+      expiryDate = widget.product!.expiryDate;
+    } else if (data['expiryDate'] != null) {
+      final rawExp = data['expiryDate'];
+      if (rawExp is Timestamp) {
+        expiryDate = rawExp.toDate();
+      } else if (rawExp is DateTime) {
+        expiryDate = rawExp;
+      } else if (rawExp is String) {
+        expiryDate = DateTime.tryParse(rawExp);
+      }
+    }
+
+    final isExpired = widget.product?.isExpired ?? (expiryDate != null && DateTime.now().isAfter(expiryDate));
+    final statusStr = (data['status'] as String? ?? 'active').toLowerCase();
+    final isRecalled = statusStr == 'recalled';
+
+    final isSuccess = widget.isGenuine && !widget.connectionError && !isExpired && !isRecalled;
+    final primaryColor = widget.connectionError
+        ? AppColors.caution
+        : (isRecalled || isExpired
+            ? AppColors.caution
+            : (isSuccess ? AppColors.primary : AppColors.danger));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -128,18 +152,22 @@ class _ResultScreenState extends State<ResultScreen> {
                     width: 90,
                     height: 90,
                     decoration: BoxDecoration(
-                      color: isSuccess ? AppColors.primary : AppColors.danger,
+                      color: primaryColor,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: (isSuccess ? AppColors.primary : AppColors.danger).withValues(alpha: 0.3),
+                          color: primaryColor.withValues(alpha: 0.3),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
                       ],
                     ),
                     child: Icon(
-                      isSuccess ? Icons.check_circle_rounded : Icons.warning_rounded,
+                      isRecalled
+                          ? Icons.warning_amber_rounded
+                          : (isExpired
+                              ? Icons.event_busy_rounded
+                              : (isSuccess ? Icons.check_circle_rounded : Icons.warning_rounded)),
                       size: 54,
                       color: Colors.white,
                     ),
@@ -148,22 +176,26 @@ class _ResultScreenState extends State<ResultScreen> {
 
                   // 2. Heading Text (~18-20px Bold)
                   Text(
-                    isSuccess ? "Genuine Product" : "Not Recognized",
+                    isRecalled
+                        ? "Product Recalled"
+                        : (isExpired
+                            ? "Product Expired"
+                            : (isSuccess ? "Genuine Product" : "Not Recognized")),
                     style: AppStyles.headingStyle.copyWith(
-                      color: isSuccess ? AppColors.primary : AppColors.danger,
+                      color: primaryColor,
                     ),
                   ),
                   const SizedBox(height: AppDimensions.spaceMedium),
 
                   // 3. Content Container / Subtext
-                  if (isSuccess) ...[
+                  if (isSuccess || isExpired || isRecalled) ...[
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(AppDimensions.screenPaddingSmall + 4),
                       decoration: BoxDecoration(
                         color: AppColors.surface,
                         borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
-                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                        border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.04),
@@ -182,11 +214,46 @@ class _ResultScreenState extends State<ResultScreen> {
                           const SizedBox(height: AppDimensions.spaceMedium),
                           const Divider(),
                           const SizedBox(height: AppDimensions.spaceSmall + 4),
+                          _buildDetailRow("Product Type", type == 'pesticide' ? "Pesticide" : "Fertilizer"),
+                          const SizedBox(height: AppDimensions.spaceSmall + 2),
                           _buildDetailRow("Batch Number", batch),
                           const SizedBox(height: AppDimensions.spaceSmall + 2),
                           _buildDetailRow("Manufacturer", manufacturer),
+                          if (expiryDate != null) ...[
+                            const SizedBox(height: AppDimensions.spaceSmall + 2),
+                            _buildDetailRow(
+                              "Expiry Date",
+                              DateFormat('MMM d, yyyy').format(expiryDate),
+                              valueColor: isExpired ? AppColors.danger : null,
+                            ),
+                          ],
                           const SizedBox(height: AppDimensions.spaceSmall + 2),
                           _buildDetailRow("Product Code", widget.scannedCode),
+                          if (dosage != null && dosage.isNotEmpty) ...[
+                            const SizedBox(height: AppDimensions.spaceMedium),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(AppDimensions.spaceSmall + 2),
+                              decoration: BoxDecoration(
+                                color: primaryColor.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
+                                border: Border.all(color: primaryColor.withValues(alpha: 0.2)),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.info_outline_rounded, size: 18, color: primaryColor),
+                                  const SizedBox(width: AppDimensions.spaceSmall),
+                                  Expanded(
+                                    child: Text(
+                                      dosage,
+                                      style: AppStyles.bodyStyle.copyWith(fontSize: 12, color: AppColors.textPrimary),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -224,7 +291,7 @@ class _ResultScreenState extends State<ResultScreen> {
                   const SizedBox(height: AppDimensions.spaceXLarge),
 
                   // 4. Action Buttons
-                  if (isSuccess) ...[
+                  if (isSuccess || isExpired || isRecalled) ...[
                     SizedBox(
                       width: double.infinity,
                       height: AppDimensions.buttonHeight,
@@ -355,7 +422,7 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -367,7 +434,10 @@ class _ResultScreenState extends State<ResultScreen> {
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.w600),
+            style: AppStyles.bodyStyle.copyWith(
+              fontWeight: FontWeight.w600,
+              color: valueColor,
+            ),
           ),
         ),
       ],

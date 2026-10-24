@@ -32,12 +32,14 @@ class ReportModel {
       parsedTime = DateTime.now();
     }
 
-    String? locationStr = map['location'] as String?;
+    String? locationStr;
     GeoPoint? gp;
     final rawLoc = map['location'];
     if (rawLoc is GeoPoint) {
       gp = rawLoc;
       locationStr = 'Lat: ${rawLoc.latitude.toStringAsFixed(2)}, Lng: ${rawLoc.longitude.toStringAsFixed(2)}';
+    } else if (rawLoc is String) {
+      locationStr = rawLoc;
     }
 
     return ReportModel(

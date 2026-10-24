@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // 1. Products Collection (/products/{code})
+    // Master registry of genuine fertilizers and pesticides.
+    // READ: Public access so any farmer can verify authenticity even before full signup.
+    // WRITE: Strictly forbidden from client app; managed via backend admin or seed scripts.
+    match /products/{code} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // 2. Users Collection (/users/{uid})
+    // Farmer profile records.
+    // READ & WRITE: Strictly limited to the authenticated user matching their own uid.
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // 3. Scans Collection (/scans/{scanId})
+    // Immutable audit trail of every scan made by farmers.
+    // CREATE: Authenticated user writing a record with their own userId.
+    // READ: Farmer can only read their own scan history.
+    // UPDATE / DELETE: Strictly forbidden to maintain audit integrity.
+    match /scans/{scanId} {
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // 4. Reports Collection (/reports/{reportId})
+    // Farmer reports of counterfeit, suspicious, or unrecognized packages.
+    // CREATE: Authenticated farmer submitting a report with their own userId and optional note <= 100 chars.
+    // READ: The submitting farmer can read their report.
+    // UPDATE / DELETE: Admin only (forbidden to mobile client users).
+    match /reports/{reportId} {
+      allow create: if isAuthenticated() 
+                    && request.resource.data.userId == request.auth.uid
+                    && (!('note' in request.resource.data) || request.resource.data.note == null || request.resource.data.note.size() <= 100);
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}
