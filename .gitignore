@@ -100,7 +100,58 @@ linux/flutter/ephemeral/
 *.g.dart
 *.freezed.dart
 
-# Python Backend & Firebase Credentials
+# =============================================================================
+# Security & Secret Credentials (NEVER PUSH TO GITHUB)
+# =============================================================================
+
+# 1. Environment & Config Variables
+.env
+.env.*
+.env*.local
+!.env.example
+
+# 2. Firebase Admin & Service Account Credentials (FULL ADMIN ACCESS)
+serviceAccountKey.json
+backend/serviceAccountKey.json
+**/serviceAccountKey*.json
+*firebase-adminsdk*.json
+*service-account*.json
+*credentials*.json
+
+# 3. Firebase Client Configuration & API Keys
+android/app/google-services.json
+**/google-services.json
+!**/google-services.json.example
+
+ios/Runner/GoogleService-Info.plist
+macos/Runner/GoogleService-Info.plist
+**/GoogleService-Info.plist
+!**/GoogleService-Info.plist.example
+
+lib/firebase_options.dart
+**/firebase_options.dart
+!**/firebase_options.dart.example
+
+# 4. Keystores, Signing Keys, Certificates & Passwords
+*.keystore
+**/*.keystore
+*.jks
+**/*.jks
+*.p12
+*.pem
+*.key
+*.cer
+*.der
+key.properties
+**/key.properties
+
+# 5. Generated Product Codes & Security QR Assets (Day 18)
+backend/codes_generated.csv
+backend/qr_output/
+backend/qr_output/*
+**/codes_generated*.csv
+
+# 6. Python Virtual Environments & Cache
 backend/venv/
 backend/.venv/
 venv/
@@ -108,15 +159,9 @@ venv/
 __pycache__/
 *.py[cod]
 *$py.class
-serviceAccountKey.json
-backend/serviceAccountKey.json
-**/serviceAccountKey.json
-backend/qr_output/
-backend/codes_generated.csv
 
-# Environment Variables
-.env
-.env.local
-.env.production
-.env.staging
-!.env.example
+# 7. Local Secrets, Tokens & Private Data
+secrets.json
+secrets.yaml
+*.secret
+*.private

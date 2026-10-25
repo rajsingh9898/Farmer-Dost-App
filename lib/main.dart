@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 // import 'services/firestore_verifier.dart';
@@ -8,9 +9,11 @@ import 'screens/splash_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase with fallback error handling
+  // Initialize Firebase with configured options
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     // [Day 16 Verification] Uncomment to run the Firestore console structure checks:
     // await runDay16FirestoreVerification();
     // [Day 17 Verification] Uncomment to run Auth sign-in, UID, and users/{uid} checks:
