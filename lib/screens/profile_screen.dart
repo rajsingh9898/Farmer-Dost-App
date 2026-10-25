@@ -202,6 +202,32 @@ class ProfileScreen extends StatelessWidget {
                     },
                   ),
                 ],
+                const SizedBox(height: AppDimensions.spaceLarge),
+                SizedBox(
+                  width: double.infinity,
+                  height: AppDimensions.buttonHeight,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      await AuthService().signOut();
+                      if (context.mounted) {
+                        Navigator.popUntil(context, (route) => route.isFirst);
+                      }
+                    },
+                    icon: const Icon(Icons.logout_rounded, color: AppColors.danger),
+                    label: Text(
+                      "Log Out",
+                      style: AppStyles.sectionHeadingStyle.copyWith(color: AppColors.danger),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.danger),
+                      padding: AppDimensions.buttonPadding,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppDimensions.spaceMedium),
               ],
             ),
           );

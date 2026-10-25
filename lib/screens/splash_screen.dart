@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
-import 'home_screen.dart';
-import 'login_screen.dart';
+import 'auth_gate.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -11,56 +9,29 @@ class SplashScreen extends StatefulWidget {
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
+
 class _SplashScreenState extends State<SplashScreen> {
-  StreamSubscription? _authSub;
+  Timer? _timer;
+
   @override
   void initState() {
     super.initState();
-    _checkAuthAndNavigate();
-  }
-  Future<void> _checkAuthAndNavigate() async {
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (!mounted) return;
-
-    try {
-      final user = AuthService().currentUser;
-      if (user != null) {
-        _navigateToHome();
-      } else {
-        _authSub = AuthService().authStateChanges.listen((user) {
-          if (!mounted) return;
-          if (user != null) {
-            _navigateToHome();
-          } else {
-            _navigateToLogin();
-          }
-        }, onError: (err) {
-          _navigateToLogin();
-        });
-      }
-    } catch (e) {
-      _navigateToLogin();
-    }
+    _startTimer();
   }
 
-  void _navigateToHome() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
-  }
-
-  void _navigateToLogin() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+  void _startTimer() {
+    _timer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const AuthGate()),
+      );
+    });
   }
 
   @override
   void dispose() {
-    _authSub?.cancel();
+    _timer?.cancel();
     super.dispose();
   }
 

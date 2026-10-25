@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class UserModel {
   final String uid;
   final String name;
+  final String? email;
   final String phone;
   final String language; // 'en', 'hi', 'pa'
   final String? district;
@@ -11,6 +12,7 @@ class UserModel {
   UserModel({
     required this.uid,
     required this.name,
+    this.email,
     required this.phone,
     this.language = 'en',
     this.district,
@@ -31,6 +33,7 @@ class UserModel {
     return UserModel(
       uid: uid,
       name: map['name'] as String? ?? 'Farmer',
+      email: map['email'] as String?,
       phone: map['phone'] as String? ?? '',
       language: map['language'] as String? ?? 'en',
       district: map['district'] as String?,
@@ -42,6 +45,7 @@ class UserModel {
     return {
       'uid': uid,
       'name': name,
+      if (email != null) 'email': email,
       'phone': phone,
       'language': language,
       if (district != null) 'district': district,

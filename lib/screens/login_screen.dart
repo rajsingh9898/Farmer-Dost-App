@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import '../widgets/custom_button.dart';
+import '../theme/app_theme.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -11,21 +11,47 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  bool _isPhoneMode = true; // Toggle between Phone OTP & Email/Pass
-  final _phoneController = TextEditingController();
-  final _otpController = TextEditingController();
+  // Auth Modes: 0 = Email Login, 1 = Email Sign Up, 2 = Phone OTP
+  bool _isSignUpMode = false;
+  bool _isPhoneMode = false;
+
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _otpController = TextEditingController();
 
+  bool _obscurePassword = true;
+  bool _isLoading = false;
   bool _codeSent = false;
   String _verificationId = '';
-  bool _isLoading = false;
   String? _errorMessage;
 
-  void _onSendOtp() async {
-    final phone = _phoneController.text.trim();
-    if (phone.isEmpty) {
-      setState(() => _errorMessage = "Please enter a valid phone number.");
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _phoneController.dispose();
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Email Auth Actions (Login / Sign Up)
+  // ---------------------------------------------------------------------------
+  Future<void> _handleEmailAuth() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final name = _nameController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => _errorMessage = "Please enter both email and password.");
+      return;
+    }
+
+    if (_isSignUpMode && name.isEmpty) {
+      setState(() => _errorMessage = "Please enter your name.");
       return;
     }
 
@@ -35,43 +61,63 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await AuthService().verifyPhoneNumber(
-        phoneNumber: phone.startsWith('+') ? phone : '+91$phone',
-        verificationCompleted: (credential) async {
-          await AuthService().auth.signInWithCredential(credential);
-          _navigateToHome();
-        },
-        verificationFailed: (e) {
-          setState(() {
-            _isLoading = false;
-            _errorMessage = e.message ?? "Verification failed.";
-          });
-        },
-        codeSent: (verificationId, resendToken) {
+      if (_isSignUpMode) {
+        await AuthService().signUpWithEmail(name, email, password);
+      } else {
+        await AuthService().signInWithEmail(email, password);
+      }
+      // Reactive authStateChanges will auto-route to HomeScreen
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = AuthService().getFriendlyErrorMessage(e);
+        });
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phone OTP Actions
+  // ---------------------------------------------------------------------------
+  Future<void> _handleSendOtp() async {
+    final phone = _phoneController.text.trim();
+    if (phone.isEmpty || phone.length < 10) {
+      setState(() => _errorMessage = "Please enter a valid 10-digit mobile number.");
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    await AuthService().sendOtp(
+      phoneNumber: phone,
+      onCodeSent: (verificationId) {
+        if (mounted) {
           setState(() {
             _isLoading = false;
             _codeSent = true;
             _verificationId = verificationId;
           });
-        },
-        codeAutoRetrievalTimeout: (verificationId) {
-          _verificationId = verificationId;
-        },
-      );
-    } catch (e) {
-      // In demo/test fallback mode: simulate SMS code sent
-      setState(() {
-        _isLoading = false;
-        _codeSent = true;
-        _verificationId = 'demo_verification_id';
-      });
-    }
+        }
+      },
+      onError: (errMsg) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = errMsg;
+          });
+        }
+      },
+    );
   }
 
-  void _onVerifyOtp() async {
-    final code = _otpController.text.trim();
-    if (code.isEmpty) {
-      setState(() => _errorMessage = "Please enter the OTP.");
+  Future<void> _handleVerifyOtp() async {
+    final otp = _otpController.text.trim();
+    if (otp.isEmpty || otp.length < 6) {
+      setState(() => _errorMessage = "Please enter the 6-digit OTP.");
       return;
     }
 
@@ -81,46 +127,19 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      if (_verificationId != 'demo_verification_id') {
-        await AuthService().signInWithOTP(_verificationId, code);
-      }
-      _navigateToHome();
+      await AuthService().verifyOtp(_verificationId, otp);
+      // Reactive authStateChanges will auto-route to HomeScreen
     } catch (e) {
-      // Fallback for demo navigation
-      _navigateToHome();
-    }
-  }
-
-  void _onEmailAuth() async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-
-    if (email.isEmpty || password.isEmpty) {
-      setState(() => _errorMessage = "Please enter email and password.");
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await AuthService().signInWithEmailPassword(email, password);
-      _navigateToHome();
-    } catch (e) {
-      // Try sign up if sign in fails, or proceed to home for demo skeleton
-      try {
-        await AuthService().signUpWithEmailPassword(email, password);
-        _navigateToHome();
-      } catch (err) {
-        _navigateToHome();
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = AuthService().getFriendlyErrorMessage(e);
+        });
       }
     }
   }
 
-  void _navigateToHome() {
-    if (!mounted) return;
+  void _continueAsGuest() {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -128,149 +147,390 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   @override
-  void dispose() {
-    _phoneController.dispose();
-    _otpController.dispose();
-    _emailController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Farmer Dost — Login / Signup"),
-        backgroundColor: Colors.green.shade700,
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: 12),
-            Icon(Icons.person_pin_rounded, size: 64, color: Colors.green.shade800),
-            const SizedBox(height: 12),
-            const Text(
-              "Welcome to Farmer Dost",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppDimensions.screenPadding,
+              vertical: AppDimensions.spaceLarge,
             ),
-            const SizedBox(height: 6),
-            const Text(
-              "Verify your product's authenticity before purchasing.",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ChoiceChip(
-                  label: const Text("Phone OTP"),
-                  selected: _isPhoneMode,
-                  onSelected: (selected) {
-                    if (selected) setState(() => _isPhoneMode = true);
-                  },
+                // Branding Header
+                Center(
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.shield_rounded,
+                      size: 42,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 12),
-                ChoiceChip(
-                  label: const Text("Email / Password"),
-                  selected: !_isPhoneMode,
-                  onSelected: (selected) {
-                    if (selected) setState(() => _isPhoneMode = false);
-                  },
+                const SizedBox(height: AppDimensions.spaceMedium),
+                Text(
+                  "Farmer Dost",
+                  textAlign: TextAlign.center,
+                  style: AppStyles.headingStyle.copyWith(fontSize: 24),
+                ),
+                const SizedBox(height: AppDimensions.spaceTiny),
+                Text(
+                  "Fertilizer & Pesticide Authenticity Verification",
+                  textAlign: TextAlign.center,
+                  style: AppStyles.mutedStyle.copyWith(fontSize: 13),
+                ),
+                const SizedBox(height: AppDimensions.spaceLarge),
+
+                // Method Switcher (Email vs Phone OTP)
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
+                    border: Border.all(color: AppColors.textSecondary.withValues(alpha: 0.15)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isPhoneMode = false;
+                              _errorMessage = null;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: !_isPhoneMode ? AppColors.primary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                            ),
+                            child: Text(
+                              "Email & Password",
+                              textAlign: TextAlign.center,
+                              style: AppStyles.bodyStyle.copyWith(
+                                color: !_isPhoneMode ? Colors.white : AppColors.textSecondary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isPhoneMode = true;
+                              _errorMessage = null;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: _isPhoneMode ? AppColors.primary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                            ),
+                            child: Text(
+                              "Phone OTP",
+                              textAlign: TextAlign.center,
+                              style: AppStyles.bodyStyle.copyWith(
+                                color: _isPhoneMode ? Colors.white : AppColors.textSecondary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppDimensions.spaceLarge),
+
+                // Error Message Card
+                if (_errorMessage != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(AppDimensions.screenPaddingSmall),
+                    decoration: BoxDecoration(
+                      color: AppColors.danger.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
+                      border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 20),
+                        const SizedBox(width: AppDimensions.spaceSmall),
+                        Expanded(
+                          child: Text(
+                            _errorMessage!,
+                            style: AppStyles.bodyStyle.copyWith(
+                              color: AppColors.danger,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppDimensions.spaceMedium),
+                ],
+
+                // -------------------------------------------------------------
+                // EMAIL / PASSWORD FIELDS
+                // -------------------------------------------------------------
+                if (!_isPhoneMode) ...[
+                  if (_isSignUpMode) ...[
+                    Text("Full Name", style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: AppDimensions.spaceSmall),
+                    TextFormField(
+                      controller: _nameController,
+                      decoration: InputDecoration(
+                        hintText: "e.g. Harpreet Singh",
+                        hintStyle: AppStyles.mutedStyle,
+                        prefixIcon: const Icon(Icons.person_outline_rounded, color: AppColors.primary),
+                        filled: true,
+                        fillColor: AppColors.surface,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
+                          borderSide: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.2)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppDimensions.spaceMedium),
+                  ],
+
+                  Text("Email Address", style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: AppDimensions.spaceSmall),
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      hintText: "farmer@example.com",
+                      hintStyle: AppStyles.mutedStyle,
+                      prefixIcon: const Icon(Icons.email_outlined, color: AppColors.primary),
+                      filled: true,
+                      fillColor: AppColors.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
+                        borderSide: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.2)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppDimensions.spaceMedium),
+
+                  Text("Password", style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: AppDimensions.spaceSmall),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    decoration: InputDecoration(
+                      hintText: "Minimum 6 characters",
+                      hintStyle: AppStyles.mutedStyle,
+                      prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.primary),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          color: AppColors.textSecondary,
+                        ),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      ),
+                      filled: true,
+                      fillColor: AppColors.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
+                        borderSide: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.2)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppDimensions.spaceLarge),
+
+                  // Submit Button
+                  SizedBox(
+                    height: AppDimensions.buttonHeight,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _handleEmailAuth,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: AppDimensions.buttonPadding,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                        ),
+                        elevation: 2,
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                            )
+                          : Text(
+                              _isSignUpMode ? "Create Account" : "Log In",
+                              style: AppStyles.sectionHeadingStyle.copyWith(color: Colors.white),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: AppDimensions.spaceMedium),
+
+                  // Toggle Sign Up / Log In Mode
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _isSignUpMode = !_isSignUpMode;
+                        _errorMessage = null;
+                      });
+                    },
+                    child: Text(
+                      _isSignUpMode
+                          ? "Already have an account? Log In"
+                          : "New to Farmer Dost? Create an Account",
+                      style: AppStyles.bodyStyle.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ]
+
+                // -------------------------------------------------------------
+                // PHONE OTP FIELDS
+                // -------------------------------------------------------------
+                else ...[
+                  if (!_codeSent) ...[
+                    Text("Mobile Number", style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: AppDimensions.spaceSmall),
+                    TextFormField(
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: InputDecoration(
+                        hintText: "9876543210",
+                        hintStyle: AppStyles.mutedStyle,
+                        prefixText: "+91 ",
+                        prefixStyle: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.bold),
+                        prefixIcon: const Icon(Icons.phone_outlined, color: AppColors.primary),
+                        filled: true,
+                        fillColor: AppColors.surface,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
+                          borderSide: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.2)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppDimensions.spaceLarge),
+                    SizedBox(
+                      height: AppDimensions.buttonHeight,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _handleSendOtp,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: AppDimensions.buttonPadding,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                              )
+                            : Text(
+                                "Send Verification OTP",
+                                style: AppStyles.sectionHeadingStyle.copyWith(color: Colors.white),
+                              ),
+                      ),
+                    ),
+                  ] else ...[
+                    Text("Enter 6-Digit OTP", style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: AppDimensions.spaceSmall),
+                    TextFormField(
+                      controller: _otpController,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      textAlign: TextAlign.center,
+                      style: AppStyles.headingStyle.copyWith(letterSpacing: 8, fontSize: 22),
+                      decoration: InputDecoration(
+                        counterText: "",
+                        hintText: "123456",
+                        hintStyle: AppStyles.mutedStyle.copyWith(letterSpacing: 4),
+                        filled: true,
+                        fillColor: AppColors.surface,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
+                          borderSide: BorderSide(color: AppColors.textSecondary.withValues(alpha: 0.2)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppDimensions.spaceLarge),
+                    SizedBox(
+                      height: AppDimensions.buttonHeight,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _handleVerifyOtp,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: AppDimensions.buttonPadding,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                              )
+                            : Text(
+                                "Verify & Continue",
+                                style: AppStyles.sectionHeadingStyle.copyWith(color: Colors.white),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: AppDimensions.spaceSmall),
+                    TextButton(
+                      onPressed: () => setState(() => _codeSent = false),
+                      child: Text(
+                        "Change phone number",
+                        style: AppStyles.mutedStyle.copyWith(color: AppColors.primary),
+                      ),
+                    ),
+                  ],
+                ],
+
+                const SizedBox(height: AppDimensions.spaceLarge),
+                const Divider(),
+                const SizedBox(height: AppDimensions.spaceSmall),
+
+                // Guest / Skip Option
+                Center(
+                  child: TextButton.icon(
+                    onPressed: _continueAsGuest,
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 16, color: AppColors.textSecondary),
+                    label: Text(
+                      "Continue as Guest Farmer",
+                      style: AppStyles.bodyStyle.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            if (_errorMessage != null) ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
-                ),
-                child: Text(
-                  _errorMessage!,
-                  style: TextStyle(color: Colors.red.shade900),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
-            if (_isPhoneMode) ...[
-              if (!_codeSent) ...[
-                TextField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: "Mobile Number",
-                    hintText: "9876543210",
-                    prefixIcon: Icon(Icons.phone),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                CustomButton(
-                  label: "Send OTP",
-                  onPressed: _onSendOtp,
-                  isLoading: _isLoading,
-                  backgroundColor: Colors.green.shade700,
-                ),
-              ] else ...[
-                TextField(
-                  controller: _otpController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: "Enter 6-digit OTP",
-                    prefixIcon: Icon(Icons.lock_clock),
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                CustomButton(
-                  label: "Verify & Continue",
-                  onPressed: _onVerifyOtp,
-                  isLoading: _isLoading,
-                  backgroundColor: Colors.green.shade700,
-                ),
-              ],
-            ] else ...[
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: "Email Address",
-                  prefixIcon: Icon(Icons.email),
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: "Password",
-                  prefixIcon: Icon(Icons.lock),
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 20),
-              CustomButton(
-                label: "Login / Signup",
-                onPressed: _onEmailAuth,
-                isLoading: _isLoading,
-                backgroundColor: Colors.green.shade700,
-              ),
-            ],
-            const SizedBox(height: 24),
-            OutlinedButton(
-              onPressed: _navigateToHome,
-              child: const Text("Skip / Continue as Guest Farmer"),
-            ),
-          ],
+          ),
         ),
       ),
     );

@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 // import 'services/firestore_verifier.dart';
+// import 'services/auth_verifier.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -10,8 +11,10 @@ void main() async {
   // Initialize Firebase with fallback error handling
   try {
     await Firebase.initializeApp();
-    // [Day 16 Verification] Uncomment the line below to run the console verification checks on launch:
+    // [Day 16 Verification] Uncomment to run the Firestore console structure checks:
     // await runDay16FirestoreVerification();
+    // [Day 17 Verification] Uncomment to run Auth sign-in, UID, and users/{uid} checks:
+    // await runDay17AuthVerification();
   } catch (e) {
     debugPrint('Firebase initialization warning: $e');
   }
