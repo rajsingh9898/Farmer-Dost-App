@@ -98,4 +98,25 @@ linux/flutter/ephemeral/
 
 # Generated code
 *.g.dart
-*.freezed.dart
+*.freezed.dart
+
+# Python Backend & Firebase Credentials
+backend/venv/
+backend/.venv/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+serviceAccountKey.json
+backend/serviceAccountKey.json
+**/serviceAccountKey.json
+backend/qr_output/
+backend/codes_generated.csv
+
+# Environment Variables
+.env
+.env.local
+.env.production
+.env.staging
+!.env.example
