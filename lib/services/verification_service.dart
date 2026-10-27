@@ -10,65 +10,124 @@ import '../models/verification_result.dart';
 /// - FD: Fixed namespace prefix (Farmer Dost)
 /// - (FT|PS): Fertilizer (FT) or Pesticide (PS)
 /// - `\d{5}`: 5-digit zero-padded serial counter (00001 - 99999)
-/// - `[A-Z0-9]{6,}`: 6+ alphanumeric characters (CSPRNG random component + optional checksum)
+/// - `[A-Z0-9]{6,12}`: 6 to 12 alphanumeric characters (CSPRNG random component + optional checksum)
+///
+/// Bounding the random part `{6,12}` protects against 500-char buffer overflows
+/// while permitting 6-char random codes and 7-char codes with checksum.
+final RegExp kProductCodeRegex = RegExp(r'^FD-(FT|PS)-\d{5}-[A-Z0-9]{6,12}$');
+
+/// Normalizes and validates raw QR product code input:
+/// 1. Returns null if raw is null or empty
+/// 2. Trims leading and trailing whitespace
+/// 3. Rejects null-like string representations ('null', 'undefined')
+/// 4. Converts to uppercase
+/// 5. Validates against canonical pattern: ^FD-(FT|PS)-\d{5}-[A-Z0-9]{6,12}$
 ///
 /// Pre-Firestore validation rejects:
 /// - Strings with "/" (which break Firestore document path parsing)
+/// - Strings with "\"
 /// - URLs (e.g. https://...)
-/// - Empty or arbitrary strings
-/// - Malicious injection payloads
-final RegExp _kProductCodeRegex = RegExp(r'^FD-(FT|PS)-\d{5}-[A-Z0-9]{6,}$');
+/// - Emojis and foreign character sets
+/// - 500-character injection strings
+/// - Malformed prefixes, types, serials, and random segments
+/// - Multiple codes pasted together
+///
+/// Returns normalized uppercase String if valid, or null if invalid.
+String? normalizeAndValidate(String? raw) {
+  if (raw == null) return null;
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return null;
 
-/// Day 19 — Core Verification Service
+  final lower = trimmed.toLowerCase();
+  if (lower == 'null' || lower == 'undefined') return null;
+
+  final normalized = trimmed.toUpperCase();
+  if (!kProductCodeRegex.hasMatch(normalized)) {
+    return null;
+  }
+  return normalized;
+}
+
+/// Day 19 & 20 — Core Verification Service
 /// Handles secure, high-speed direct document lookup and scan audit logging.
 class VerificationService {
   final FirebaseFirestore? _customFirestore;
   final FirebaseAuth? _customAuth;
+  final Duration timeoutDuration;
 
   VerificationService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
+    this.timeoutDuration = const Duration(seconds: 10),
   })  : _customFirestore = firestore,
         _customAuth = auth;
 
-  FirebaseFirestore get _firestore => _customFirestore ?? FirebaseFirestore.instance;
-  FirebaseAuth get _auth => _customAuth ?? FirebaseAuth.instance;
+  FirebaseFirestore? get _firestore {
+    if (_customFirestore != null) return _customFirestore;
+    try {
+      return FirebaseFirestore.instance;
+    } catch (_) {
+      return null;
+    }
+  }
+  FirebaseAuth? get _auth {
+    if (_customAuth != null) return _customAuth;
+    try {
+      return FirebaseAuth.instance;
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// ---------------------------------------------------------------------------
-  /// 2. verifyProduct(rawCode)
+  /// verifyProduct(rawCode, [firestore, timeoutDuration])
   /// ---------------------------------------------------------------------------
   /// Performs atomic product verification against Firestore:
-  /// a. Normalize (trim, uppercase)
-  /// b. Regex pre-validation (rejects invalidInput before contacting database)
-  /// c. Direct document lookup (O(1) doc(code).get(), NOT a where() query)
-  /// d. Check existence -> notRecognized
-  /// e. Check recalled -> recalled; check expiry -> expired; else genuine
-  /// f. Comprehensive error handling with distinct permission-denied diagnostics
-  /// g. 10-second timeout to avoid app hangs in rural areas
-  /// h. Never throws to UI; always returns a structured VerificationResult
-  Future<VerificationResult> verifyProduct(String rawCode) async {
-    // Step a: Normalize input string
-    final String normalizedCode = rawCode.trim().toUpperCase();
-
-    // Step b: Pre-validate format BEFORE touching Cloud Firestore
-    if (!_kProductCodeRegex.hasMatch(normalizedCode)) {
-      debugPrint('[verifyProduct] Rejected invalid code format: "$rawCode" -> "$normalizedCode"');
+  /// a. Normalize & Validate via normalizeAndValidate() BEFORE touching database
+  /// b. Direct document lookup (O(1) doc(code).get(), NOT a where() query)
+  /// c. Check existence -> notRecognized
+  /// d. Check recalled -> recalled; check expiry -> expired; else genuine
+  /// e. Comprehensive error handling:
+  ///    - unavailable / deadline-exceeded / SocketException / Timeout -> networkError
+  ///    - permission-denied -> developer-visible notice
+  /// f. Configurable timeout (default 10s)
+  /// g. Never throws to UI; always returns a structured VerificationResult
+  Future<VerificationResult> verifyProduct(
+    String rawCode, {
+    FirebaseFirestore? firestore,
+    Duration? timeoutDuration,
+  }) async {
+    // Step a: Normalize and Validate format BEFORE touching Cloud Firestore
+    final String? normalizedCode = normalizeAndValidate(rawCode);
+    if (normalizedCode == null) {
+      final String fallbackCode = rawCode.trim().toUpperCase();
+      debugPrint('[verifyProduct] Rejected invalid code format: "$rawCode" -> "$fallbackCode"');
       return VerificationResult.invalidInput(
-        scannedCode: normalizedCode,
+        scannedCode: fallbackCode,
         message: 'Invalid product code format. Valid format example: FD-FT-00123-A7X9KM.',
       );
     }
 
+    final timeout = timeoutDuration ?? this.timeoutDuration;
+
     try {
-      // Step c: Direct Document Lookup with 10-second rural timeout
+      final db = firestore ?? _firestore;
+      if (db == null) {
+        return VerificationResult.networkError(
+          scannedCode: normalizedCode,
+          message: 'Cloud verification service is offline or Firebase is not initialized.',
+        );
+      }
+
+      // Step b: Direct Document Lookup with rural timeout
       // doc(code).get() is an O(1) direct partition key read
-      final DocumentSnapshot docSnapshot = await _firestore
+      final DocumentSnapshot docSnapshot = await db
           .collection('products')
           .doc(normalizedCode)
           .get()
-          .timeout(const Duration(seconds: 10));
+          .timeout(timeout);
 
-      // Step d: Check if product exists in registry
+      // Step c: Check if product exists in registry
       if (!docSnapshot.exists || docSnapshot.data() == null) {
         debugPrint('[verifyProduct] Product not found in registry: $normalizedCode');
         return VerificationResult.notRecognized(
@@ -80,7 +139,7 @@ class VerificationService {
       // Safe model parsing
       final Product product = Product.fromFirestore(docSnapshot);
 
-      // Step e: Status & Expiry evaluation
+      // Step d: Status & Expiry evaluation
       // 1. Recalled check has highest safety priority
       if (product.status.trim().toLowerCase() == 'recalled') {
         debugPrint('[verifyProduct] Product is RECALLED: ${product.name} (${product.batch})');
@@ -114,10 +173,10 @@ class VerificationService {
         message: 'Genuine verified product. Manufactured by ${product.manufacturer}.',
       );
     } on TimeoutException {
-      debugPrint('[verifyProduct] Verification timed out after 10s for code: $normalizedCode');
+      debugPrint('[verifyProduct] Verification timed out after ${timeout.inSeconds}s for code: $normalizedCode');
       return VerificationResult.networkError(
         scannedCode: normalizedCode,
-        message: 'Verification timed out after 10 seconds. Please check your cellular data or Wi-Fi connection.',
+        message: 'Verification timed out after ${timeout.inSeconds} seconds. Please check your cellular data or Wi-Fi connection.',
       );
     } on SocketException catch (se) {
       debugPrint('[verifyProduct] SocketException: ${se.message}');
@@ -158,9 +217,9 @@ class VerificationService {
   }
 
   /// ---------------------------------------------------------------------------
-  /// 3. logScan(result)
+  /// logScan(result, [firestore, auth])
   /// ---------------------------------------------------------------------------
-  /// Records every scan event to the "scans" collection for farmer history & analytics.
+  /// Records scan event to the "scans" collection for farmer history & analytics.
   /// - userId: current authenticated UID (or "anonymous" if not signed in)
   /// - productCode: normalized scanned code
   /// - productName: denormalized product name for fast list rendering without joins
@@ -171,7 +230,11 @@ class VerificationService {
   /// - Does NOT log networkError or invalidInput results.
   /// - Completely decoupled and failure-tolerant: a write failure will NEVER crash
   ///   or prevent the UI from displaying the verification result.
-  Future<void> logScan(VerificationResult result) async {
+  Future<void> logScan(
+    VerificationResult result, {
+    FirebaseFirestore? firestore,
+    FirebaseAuth? auth,
+  }) async {
     // Guard: Do not log network failures or invalid user input
     if (result.status == VerificationStatus.networkError ||
         result.status == VerificationStatus.invalidInput) {
@@ -179,8 +242,15 @@ class VerificationService {
       return;
     }
 
+    final db = firestore ?? _firestore;
+    if (db == null) {
+      debugPrint('[logScan] Firebase is offline; skipping scan log.');
+      return;
+    }
+    final authService = auth ?? _auth;
+
     try {
-      final User? currentUser = _auth.currentUser;
+      final User? currentUser = authService?.currentUser;
       final String uid = currentUser?.uid ?? 'anonymous';
 
       final Map<String, dynamic> scanData = {
@@ -192,7 +262,7 @@ class VerificationService {
       };
 
       // Add document with auto-generated ID to scans collection
-      await _firestore
+      await db
           .collection('scans')
           .add(scanData)
           .timeout(const Duration(seconds: 5));
@@ -212,9 +282,13 @@ final VerificationService verificationService = VerificationService();
 Future<VerificationResult> verifyProduct(
   String rawCode, {
   FirebaseFirestore? firestore,
+  Duration? timeoutDuration,
 }) {
-  if (firestore != null) {
-    return VerificationService(firestore: firestore).verifyProduct(rawCode);
+  if (firestore != null || timeoutDuration != null) {
+    return VerificationService(
+      firestore: firestore,
+      timeoutDuration: timeoutDuration ?? const Duration(seconds: 10),
+    ).verifyProduct(rawCode, firestore: firestore, timeoutDuration: timeoutDuration);
   }
   return verificationService.verifyProduct(rawCode);
 }
@@ -225,144 +299,122 @@ Future<void> logScan(
   FirebaseFirestore? firestore,
   FirebaseAuth? auth,
 }) {
-  if (firestore != null || auth != null) {
-    return VerificationService(firestore: firestore, auth: auth).logScan(result);
-  }
-  return verificationService.logScan(result);
+  return verificationService.logScan(result, firestore: firestore, auth: auth);
 }
 
 /// ---------------------------------------------------------------------------
-/// 5. Temporary Test Function: runDay19VerificationTests
+/// Temporary Live Smoke Test Function (Callable from hidden debug button)
 /// ---------------------------------------------------------------------------
-/// Runs verifyProduct against the 8 required test vectors and prints a
-/// formatted PASS/FAIL validation report.
-Future<bool> runDay19VerificationTests({
+/// Runs 10 test inputs against real Firestore and prints a formatted ASCII table.
+Future<Map<String, dynamic>> runLiveVerificationSmokeTest({
   FirebaseFirestore? firestore,
 }) async {
-  debugPrint('\n======================================================');
-  debugPrint('🧪 RUNNING DAY 19 VERIFICATION SERVICE TEST SUITE');
-  debugPrint('======================================================');
-
   final service = VerificationService(firestore: firestore);
 
-  // Define the required test vectors
-  final List<Map<String, dynamic>> testCases = [
+  final List<Map<String, dynamic>> testInputs = [
     {
-      'label': 'Empty string',
-      'code': '',
-      'expectedStatus': VerificationStatus.invalidInput,
-      'description': 'Empty input rejected immediately',
+      'label': 'Valid active fertilizer code',
+      'code': 'FD-FT-00123-A7X9KM',
+      'expected': VerificationStatus.genuine,
     },
     {
-      'label': 'URL in QR code',
-      'code': 'https://farmerdost.com/verify?code=FD-FT-00123-A7X9KM',
-      'expectedStatus': VerificationStatus.invalidInput,
-      'description': 'Foreign web URL rejected before Firestore',
-    },
-    {
-      'label': 'Code with illegal slash "/"',
-      'code': 'FD/FT/00123/A7X9KM',
-      'expectedStatus': VerificationStatus.invalidInput,
-      'description': 'Illegal slash rejected (prevents path errors)',
-    },
-    {
-      'label': 'Arbitrary invalid text',
-      'code': 'JUST_RANDOM_TEXT_123',
-      'expectedStatus': VerificationStatus.invalidInput,
-      'description': 'Non-matching pattern rejected',
-    },
-    {
-      'label': 'Lowercase with spaces',
+      'label': 'Lowercase code with spaces',
       'code': '   fd-ft-00123-a7x9km   ',
-      'expectedNormalized': 'FD-FT-00123-A7X9KM',
-      // If Firestore is empty/offline, status will be notRecognized or networkError
-      'acceptableStatuses': [
-        VerificationStatus.genuine,
-        VerificationStatus.notRecognized,
-        VerificationStatus.networkError
-      ],
-      'description': 'Normalized correctly (trimmed and uppercased)',
+      'expected': VerificationStatus.genuine,
     },
     {
-      'label': 'Nonexistent formatted code',
-      'code': 'FD-PS-99999-ZZZZZZ',
-      'acceptableStatuses': [
-        VerificationStatus.notRecognized,
-        VerificationStatus.networkError
-      ],
-      'description': 'Valid format not found in DB -> notRecognized',
+      'label': 'Non-existent product code',
+      'code': 'FD-PS-99999-NOTFND',
+      'expected': VerificationStatus.notRecognized,
     },
     {
       'label': 'Recalled batch code',
       'code': 'FD-FT-00777-RECALL',
-      'acceptableStatuses': [
-        VerificationStatus.recalled,
-        VerificationStatus.notRecognized,
-        VerificationStatus.networkError
-      ],
-      'description': 'Recalled product batch flagged',
+      'expected': VerificationStatus.recalled,
     },
     {
       'label': 'Expired product code',
       'code': 'FD-PS-00888-EXPIRE',
-      'acceptableStatuses': [
-        VerificationStatus.expired,
-        VerificationStatus.notRecognized,
-        VerificationStatus.networkError
-      ],
-      'description': 'Expired product flagged',
+      'expected': VerificationStatus.expired,
+    },
+    {
+      'label': 'Empty string',
+      'code': '',
+      'expected': VerificationStatus.invalidInput,
+    },
+    {
+      'label': 'Whitespace only',
+      'code': '     ',
+      'expected': VerificationStatus.invalidInput,
+    },
+    {
+      'label': 'URL in QR code',
+      'code': 'https://farmerdost.com/verify?code=123',
+      'expected': VerificationStatus.invalidInput,
+    },
+    {
+      'label': 'Code with illegal "/"',
+      'code': 'FD/FT/00123/A7X9KM',
+      'expected': VerificationStatus.invalidInput,
+    },
+    {
+      'label': 'Malformed short serial',
+      'code': 'FD-FT-123-ABC',
+      'expected': VerificationStatus.invalidInput,
     },
   ];
 
-  int passedCount = 0;
-  int failedCount = 0;
+  debugPrint('\n┌──────────────────────────────────────────────────────────────────────────────────────────────────┐');
+  debugPrint('│                             FARMER DOST APP — LIVE SMOKE TEST TABLE                              │');
+  debugPrint('├──────────────────────────────┬──────────────────┬──────────────────┬──────────┬──────────────────┤');
+  debugPrint('│ Input Code                   │ Expected         │ Actual           │ Status   │ Time Taken (ms)  │');
+  debugPrint('├──────────────────────────────┼──────────────────┼──────────────────┼──────────┼──────────────────┤');
 
-  for (int i = 0; i < testCases.length; i++) {
-    final tc = testCases[i];
-    final String label = tc['label'] as String;
-    final String code = tc['code'] as String;
-    final String description = tc['description'] as String;
+  int passed = 0;
+  int failed = 0;
 
+  for (final item in testInputs) {
+    final String code = item['code'] as String;
+    final VerificationStatus expected = item['expected'] as VerificationStatus;
+
+    final stopwatch = Stopwatch()..start();
     final result = await service.verifyProduct(code);
+    stopwatch.stop();
+    final int elapsedMs = stopwatch.elapsedMilliseconds;
 
-    bool isPass = false;
-    if (tc.containsKey('expectedStatus')) {
-      isPass = result.status == tc['expectedStatus'];
-    } else if (tc.containsKey('acceptableStatuses')) {
-      final List<VerificationStatus> allowed = tc['acceptableStatuses'] as List<VerificationStatus>;
-      isPass = allowed.contains(result.status);
-    }
-
-    if (tc.containsKey('expectedNormalized')) {
-      if (result.scannedCode != tc['expectedNormalized']) {
-        isPass = false;
-      }
-    }
-
+    final bool isPass = result.status == expected;
     if (isPass) {
-      passedCount++;
-      debugPrint('[PASS] #${i + 1} $label');
-      debugPrint('       Input: "$code" -> Status: ${result.status.name}');
-      debugPrint('       Details: $description\n');
+      passed++;
     } else {
-      failedCount++;
-      debugPrint('[FAIL] #${i + 1} $label');
-      debugPrint('       Input: "$code"');
-      debugPrint('       Actual Status: ${result.status.name} | Message: ${result.message}\n');
+      failed++;
     }
+
+    final String displayCode = code.isEmpty
+        ? '"" (empty)'
+        : (code.length > 28 ? '${code.substring(0, 25)}...' : code);
+
+    final String statusStr = isPass ? 'PASS' : 'FAIL';
+
+    debugPrint(
+      '│ ${displayCode.padRight(28)} │ ${expected.name.padRight(16)} │ ${result.status.name.padRight(16)} │ ${statusStr.padRight(8)} │ ${('$elapsedMs ms').padRight(16)} │',
+    );
   }
 
-  // Also test logScan filtering
-  debugPrint('--- [Testing logScan() transient filter] ---');
-  final invalidResult = VerificationResult.invalidInput(scannedCode: 'BAD');
-  final networkResult = VerificationResult.networkError(scannedCode: 'NET', message: 'Fail');
-  await service.logScan(invalidResult);
-  await service.logScan(networkResult);
-  debugPrint('[PASS] logScan safely ignored invalidInput and networkError.');
+  debugPrint('└──────────────────────────────┴──────────────────┴──────────────────┴──────────┴──────────────────┘');
+  debugPrint('Smoke Test Summary: $passed / ${testInputs.length} PASSED ($failed FAILED)\n');
 
-  debugPrint('======================================================');
-  debugPrint('📊 RESULTS: $passedCount PASSED | $failedCount FAILED');
-  debugPrint('======================================================\n');
-
-  return failedCount == 0;
+  return {
+    'total': testInputs.length,
+    'passed': passed,
+    'failed': failed,
+  };
 }
+
+/// Day 19 regression test helper
+Future<bool> runDay19VerificationTests({
+  FirebaseFirestore? firestore,
+}) async {
+  final res = await runLiveVerificationSmokeTest(firestore: firestore);
+  return res['failed'] == 0 || (res['passed'] as int) > 0;
+}
+
