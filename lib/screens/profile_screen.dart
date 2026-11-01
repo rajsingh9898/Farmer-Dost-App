@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/user_model.dart';
-import '../models/scan_model.dart';
-import '../services/firestore_service.dart';
-import '../services/auth_service.dart';
+import '../services/services.dart';
 import '../theme/app_theme.dart';
 
 class ProfileScreenData {
@@ -25,9 +22,12 @@ class ProfileScreen extends StatelessWidget {
   }) : userId = userId ?? AuthService().currentUserId;
 
   Future<ProfileScreenData> _fetchProfileAndHistory() async {
-    final profile = await FirestoreService().getProfile(userId);
-    final scans = await FirestoreService().getScanHistory(userId);
-    return ProfileScreenData(profile: profile, scans: scans);
+    final profileResult = await ProfileService().getProfile(uid: userId);
+    final historyResult = await ScanHistoryService().getScanHistory(limit: 50);
+    return ProfileScreenData(
+      profile: profileResult.user,
+      scans: historyResult.scans,
+    );
   }
 
   @override

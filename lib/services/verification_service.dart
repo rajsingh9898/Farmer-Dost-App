@@ -130,10 +130,12 @@ class VerificationService {
       // Step c: Check if product exists in registry
       if (!docSnapshot.exists || docSnapshot.data() == null) {
         debugPrint('[verifyProduct] Product not found in registry: $normalizedCode');
-        return VerificationResult.notRecognized(
+        final result = VerificationResult.notRecognized(
           scannedCode: normalizedCode,
           message: 'Warning: This product code is not recognized in the official registry. Possible counterfeit product.',
         );
+        await logScan(result, firestore: db, auth: _auth);
+        return result;
       }
 
       // Safe model parsing
@@ -143,11 +145,13 @@ class VerificationService {
       // 1. Recalled check has highest safety priority
       if (product.status.trim().toLowerCase() == 'recalled') {
         debugPrint('[verifyProduct] Product is RECALLED: ${product.name} (${product.batch})');
-        return VerificationResult.recalled(
+        final result = VerificationResult.recalled(
           product: product,
           scannedCode: normalizedCode,
           message: 'DANGER: This product batch (${product.batch}) has been RECALLED by ${product.manufacturer}. Do not apply to crops.',
         );
+        await logScan(result, firestore: db, auth: _auth);
+        return result;
       }
 
       // 2. Expiry check (either status flag or timestamp calculation)
@@ -158,20 +162,24 @@ class VerificationService {
             ? '${product.expiryDate!.day}/${product.expiryDate!.month}/${product.expiryDate!.year}'
             : 'N/A';
         debugPrint('[verifyProduct] Product EXPIRED on $expiryStr: ${product.name}');
-        return VerificationResult.expired(
+        final result = VerificationResult.expired(
           product: product,
           scannedCode: normalizedCode,
           message: 'WARNING: This product expired on $expiryStr. Chemical degradation may reduce efficacy or harm soil.',
         );
+        await logScan(result, firestore: db, auth: _auth);
+        return result;
       }
 
       // 3. Genuine active product
       debugPrint('[verifyProduct] Product verified GENUINE: ${product.name}');
-      return VerificationResult.genuine(
+      final result = VerificationResult.genuine(
         product: product,
         scannedCode: normalizedCode,
         message: 'Genuine verified product. Manufactured by ${product.manufacturer}.',
       );
+      await logScan(result, firestore: db, auth: _auth);
+      return result;
     } on TimeoutException {
       debugPrint('[verifyProduct] Verification timed out after ${timeout.inSeconds}s for code: $normalizedCode');
       return VerificationResult.networkError(

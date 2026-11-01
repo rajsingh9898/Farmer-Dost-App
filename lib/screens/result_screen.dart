@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/product_model.dart';
+import '../services/services.dart';
 import '../widgets/error_card.dart';
 import '../theme/app_theme.dart';
 import 'report_screen.dart';
@@ -16,15 +16,17 @@ class ResultScreen extends StatefulWidget {
   final bool connectionError;
   final String? errorMessage;
   final ProductModel? product;
+  final VerificationResult? verificationResult;
 
   const ResultScreen({
     super.key,
-    required this.isGenuine,
+    this.isGenuine = false,
     this.productData,
     required this.scannedCode,
     this.connectionError = false,
     this.errorMessage,
     this.product,
+    this.verificationResult,
   });
 
   @override
@@ -40,8 +42,12 @@ class _ResultScreenState extends State<ResultScreen> {
 
   void _triggerHaptics() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.connectionError) return;
-      if (widget.isGenuine) {
+      if (widget.connectionError || (widget.verificationResult?.status == VerificationStatus.networkError)) {
+        return;
+      }
+      final isSuccess = (widget.verificationResult?.status == VerificationStatus.genuine) ||
+          (widget.isGenuine && !widget.connectionError);
+      if (isSuccess) {
         HapticFeedback.lightImpact();
       } else {
         HapticFeedback.heavyImpact();
@@ -49,49 +55,58 @@ class _ResultScreenState extends State<ResultScreen> {
     });
   }
 
-  Map<String, dynamic> _resolveProductData() {
-    if (widget.productData != null) {
-      return widget.productData!;
-    }
-    if (widget.product != null) {
-      return widget.product!.toMap();
-    }
-    return {};
-  }
-
   @override
   Widget build(BuildContext context) {
-    final data = _resolveProductData();
-    final name = data['name'] as String? ?? 'Unknown Product';
-    final batch = data['batch'] as String? ?? 'N/A';
-    final manufacturer = data['manufacturer'] as String? ?? 'Unknown Manufacturer';
-    final type = (data['type'] as String? ?? 'fertilizer').toLowerCase();
-    final dosage = data['dosage'] as String?;
+    // 1. Resolve State from VerificationResult if present, else fallback to legacy props
+    final vResult = widget.verificationResult;
 
-    DateTime? expiryDate;
-    if (widget.product?.expiryDate != null) {
-      expiryDate = widget.product!.expiryDate;
-    } else if (data['expiryDate'] != null) {
-      final rawExp = data['expiryDate'];
-      if (rawExp is Timestamp) {
-        expiryDate = rawExp.toDate();
-      } else if (rawExp is DateTime) {
-        expiryDate = rawExp;
-      } else if (rawExp is String) {
-        expiryDate = DateTime.tryParse(rawExp);
-      }
+    final bool isNetworkError = (vResult?.status == VerificationStatus.networkError) || widget.connectionError;
+    final bool isInvalidInput = vResult?.status == VerificationStatus.invalidInput;
+    final bool isRecalled = (vResult?.status == VerificationStatus.recalled) ||
+        (widget.productData?['status']?.toString().toLowerCase() == 'recalled');
+    final bool isExpired = (vResult?.status == VerificationStatus.expired) ||
+        (widget.product?.isExpired == true);
+    final bool isNotRecognized = (vResult?.status == VerificationStatus.notRecognized) ||
+        (!widget.isGenuine && !isNetworkError && !isInvalidInput && !isRecalled && !isExpired);
+    final bool isGenuine = (vResult?.status == VerificationStatus.genuine) ||
+        (widget.isGenuine && !isNetworkError && !isRecalled && !isExpired);
+
+    // Resolve Product Details
+    final String productName = vResult?.name ??
+        widget.product?.name ??
+        (widget.productData?['name'] as String?) ??
+        'Product Details';
+    final String manufacturer = vResult?.manufacturer ??
+        widget.product?.manufacturer ??
+        (widget.productData?['manufacturer'] as String?) ??
+        'N/A';
+    final String batch = vResult?.batch ??
+        widget.product?.batch ??
+        (widget.productData?['batch'] as String?) ??
+        'N/A';
+    final String type = (vResult?.type ??
+            widget.product?.type ??
+            widget.productData?['type'] as String? ??
+            'fertilizer')
+        .toLowerCase();
+
+    DateTime? expiryDate = vResult?.expiryDate ?? widget.product?.expiryDate;
+    if (expiryDate == null && widget.productData?['expiryDate'] != null) {
+      final raw = widget.productData!['expiryDate'];
+      if (raw is Timestamp) expiryDate = raw.toDate();
+      if (raw is DateTime) expiryDate = raw;
     }
 
-    final isExpired = widget.product?.isExpired ?? (expiryDate != null && DateTime.now().isAfter(expiryDate));
-    final statusStr = (data['status'] as String? ?? 'active').toLowerCase();
-    final isRecalled = statusStr == 'recalled';
+    final String expiryString = expiryDate != null ? DateFormat('dd MMM yyyy').format(expiryDate) : 'N/A';
 
-    final isSuccess = widget.isGenuine && !widget.connectionError && !isExpired && !isRecalled;
-    final primaryColor = widget.connectionError
+    // Color Theme Determination
+    final Color primaryColor = isNetworkError
         ? AppColors.caution
         : (isRecalled || isExpired
             ? AppColors.caution
-            : (isSuccess ? AppColors.primary : AppColors.danger));
+            : (isGenuine
+                ? AppColors.primary
+                : (isInvalidInput ? AppColors.caution : AppColors.danger)));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -112,10 +127,12 @@ class _ResultScreenState extends State<ResultScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                if (widget.connectionError) ...[
-                  // Network / Connection Offline Error State
+                if (isNetworkError) ...[
+                  // Network / Connection Error State
                   ErrorCard(
-                    message: widget.errorMessage ?? "Can't verify right now, check your connection",
+                    message: vResult?.message ??
+                        widget.errorMessage ??
+                        "Can't verify right now, check your cellular connection.",
                     onRetry: () {
                       Navigator.pushReplacement(
                         context,
@@ -144,10 +161,68 @@ class _ResultScreenState extends State<ResultScreen> {
                       child: const Text("Back to Home"),
                     ),
                   ),
+                ] else if (isInvalidInput) ...[
+                  // Invalid Format State
+                  Container(
+                    width: 90,
+                    height: 90,
+                    decoration: BoxDecoration(
+                      color: AppColors.caution,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.caution.withValues(alpha: 0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.error_outline_rounded,
+                      size: 54,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: AppDimensions.spaceMedium),
+                  Text(
+                    "Invalid Code Format",
+                    style: AppStyles.headingStyle.copyWith(color: AppColors.caution),
+                  ),
+                  const SizedBox(height: AppDimensions.spaceSmall),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Text(
+                      vResult?.message ??
+                          "The scanned code '${widget.scannedCode}' does not match the Farmer Dost code format. Valid example: FD-FT-00123-A7X9KM.",
+                      textAlign: TextAlign.center,
+                      style: AppStyles.mutedStyle,
+                    ),
+                  ),
+                  const SizedBox(height: AppDimensions.spaceLarge),
+                  SizedBox(
+                    width: double.infinity,
+                    height: AppDimensions.buttonHeight,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ScanScreen()),
+                        );
+                      },
+                      icon: const Icon(Icons.qr_code_scanner),
+                      label: const Text("Scan Again"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: AppDimensions.buttonPadding,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                        ),
+                      ),
+                    ),
+                  ),
                 ] else ...[
-                  // Shared Vertical-Centered Template Layout (Icon -> Heading -> Content/Subtext -> Action)
-
-                  // 1. Large Circular Icon Container
+                  // 1. Status Icon Container
                   Container(
                     width: 90,
                     height: 90,
@@ -167,28 +242,51 @@ class _ResultScreenState extends State<ResultScreen> {
                           ? Icons.warning_amber_rounded
                           : (isExpired
                               ? Icons.event_busy_rounded
-                              : (isSuccess ? Icons.check_circle_rounded : Icons.warning_rounded)),
+                              : (isGenuine ? Icons.check_circle_rounded : Icons.gpp_bad_rounded)),
                       size: 54,
                       color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: AppDimensions.spaceMedium),
 
-                  // 2. Heading Text (~18-20px Bold)
+                  // 2. Heading Text
                   Text(
                     isRecalled
                         ? "Product Recalled"
                         : (isExpired
                             ? "Product Expired"
-                            : (isSuccess ? "Genuine Product" : "Not Recognized")),
-                    style: AppStyles.headingStyle.copyWith(
-                      color: primaryColor,
-                    ),
+                            : (isGenuine
+                                ? "Genuine Product"
+                                : (isNotRecognized ? "Not Recognized / Fake" : "Unverified Product"))),
+                    style: AppStyles.headingStyle.copyWith(color: primaryColor),
                   ),
-                  const SizedBox(height: AppDimensions.spaceMedium),
+                  const SizedBox(height: AppDimensions.spaceSmall),
 
-                  // 3. Content Container / Subtext
-                  if (isSuccess || isExpired || isRecalled) ...[
+                  // Optional message / alert banner
+                  if (vResult?.message != null && !isGenuine) ...[
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: AppDimensions.spaceMedium),
+                      padding: const EdgeInsets.all(AppDimensions.screenPaddingSmall),
+                      decoration: BoxDecoration(
+                        color: primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
+                        border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        vResult!.message!,
+                        textAlign: TextAlign.center,
+                        style: AppStyles.bodyStyle.copyWith(
+                          color: primaryColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  // 3. Product Details Card (Genuine, Recalled, Expired)
+                  if (isGenuine || isExpired || isRecalled) ...[
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(AppDimensions.screenPaddingSmall + 4),
@@ -205,63 +303,42 @@ class _ResultScreenState extends State<ResultScreen> {
                         ],
                       ),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            name,
-                            textAlign: TextAlign.center,
-                            style: AppStyles.headingStyle.copyWith(fontSize: 18),
+                          // Product Name
+                          Row(
+                            children: [
+                              Icon(
+                                type.contains('pesticide') ? Icons.bug_report : Icons.eco,
+                                color: primaryColor,
+                                size: 20,
+                              ),
+                              const SizedBox(width: AppDimensions.spaceSmall),
+                              Expanded(
+                                child: Text(
+                                  productName,
+                                  style: AppStyles.headingStyle.copyWith(fontSize: 16),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: AppDimensions.spaceMedium),
-                          const Divider(),
-                          const SizedBox(height: AppDimensions.spaceSmall + 4),
-                          _buildDetailRow("Product Type", type == 'pesticide' ? "Pesticide" : "Fertilizer"),
-                          const SizedBox(height: AppDimensions.spaceSmall + 2),
-                          _buildDetailRow("Batch Number", batch),
-                          const SizedBox(height: AppDimensions.spaceSmall + 2),
+                          const Divider(height: AppDimensions.spaceMedium),
+
+                          // Metadata Fields
                           _buildDetailRow("Manufacturer", manufacturer),
-                          if (expiryDate != null) ...[
-                            const SizedBox(height: AppDimensions.spaceSmall + 2),
-                            _buildDetailRow(
-                              "Expiry Date",
-                              DateFormat('MMM d, yyyy').format(expiryDate),
-                              valueColor: isExpired ? AppColors.danger : null,
-                            ),
-                          ],
-                          const SizedBox(height: AppDimensions.spaceSmall + 2),
+                          _buildDetailRow("Batch Number", batch),
+                          _buildDetailRow("Product Type", type.toUpperCase()),
+                          _buildDetailRow("Expiry Date", expiryString, isHighlight: isExpired),
                           _buildDetailRow("Product Code", widget.scannedCode),
-                          if (dosage != null && dosage.isNotEmpty) ...[
-                            const SizedBox(height: AppDimensions.spaceMedium),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(AppDimensions.spaceSmall + 2),
-                              decoration: BoxDecoration(
-                                color: primaryColor.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
-                                border: Border.all(color: primaryColor.withValues(alpha: 0.2)),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(Icons.info_outline_rounded, size: 18, color: primaryColor),
-                                  const SizedBox(width: AppDimensions.spaceSmall),
-                                  Expanded(
-                                    child: Text(
-                                      dosage,
-                                      style: AppStyles.bodyStyle.copyWith(fontSize: 12, color: AppColors.textPrimary),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                     ),
                   ] else ...[
+                    // Not Recognized Card
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: AppDimensions.screenPaddingSmall),
                       child: Text(
-                        "This code was not found in our database",
+                        "This product code was not found in the official registry. Possible counterfeit product.",
                         textAlign: TextAlign.center,
                         style: AppStyles.mutedStyle.copyWith(fontSize: 15),
                       ),
@@ -291,7 +368,7 @@ class _ResultScreenState extends State<ResultScreen> {
                   const SizedBox(height: AppDimensions.spaceXLarge),
 
                   // 4. Action Buttons
-                  if (isSuccess || isExpired || isRecalled) ...[
+                  if (isGenuine) ...[
                     SizedBox(
                       width: double.infinity,
                       height: AppDimensions.buttonHeight,
@@ -343,6 +420,7 @@ class _ResultScreenState extends State<ResultScreen> {
                       ),
                     ),
                   ] else ...[
+                    // Not genuine / Recalled / Expired -> Provide Report Button
                     SizedBox(
                       width: double.infinity,
                       height: AppDimensions.buttonHeight,
@@ -357,11 +435,13 @@ class _ResultScreenState extends State<ResultScreen> {
                         },
                         icon: const Icon(Icons.report_problem_rounded),
                         label: Text(
-                          "Report this product",
+                          isRecalled
+                              ? "Report Recalled Product"
+                              : (isExpired ? "Report Expired Product" : "Report Counterfeit Product"),
                           style: AppStyles.sectionHeadingStyle.copyWith(color: Colors.white),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.danger,
+                          backgroundColor: isRecalled || isExpired ? AppColors.caution : AppColors.danger,
                           foregroundColor: Colors.white,
                           padding: AppDimensions.buttonPadding,
                           shape: RoundedRectangleBorder(
@@ -422,25 +502,29 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: AppStyles.mutedStyle.copyWith(fontWeight: FontWeight.bold),
-        ),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: AppStyles.bodyStyle.copyWith(
-              fontWeight: FontWeight.w600,
-              color: valueColor,
+  Widget _buildDetailRow(String label, String value, {bool isHighlight = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: AppStyles.mutedStyle.copyWith(fontSize: 13),
+          ),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: AppStyles.bodyStyle.copyWith(
+                fontWeight: isHighlight ? FontWeight.bold : FontWeight.w600,
+                color: isHighlight ? AppColors.danger : AppColors.textPrimary,
+                fontSize: 13,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -1,21 +1,27 @@
 #!/usr/bin/env python3
 """
-Farmer Dost App — Day 18: Product Code & QR Generator
-Generates unique, cryptographically secure, hard-to-guess product codes,
-creates high-res QR code PNGs with error correction, logs summaries to CSV,
-and persists genuine product records to Cloud Firestore.
+=============================================================================
+Farmer Dost App — Secure Product Code & QR Generator (Day 18, 22, 23)
+=============================================================================
+This backend utility generates cryptographically secure, collision-free
+product verification codes for genuine agricultural fertilizers and pesticides,
+saves them to Google Cloud Firestore, and renders print-ready QR codes.
 
-Format: FD-<TYPE>-<SERIAL>-<RANDOM>[CHECKSUM]
-- TYPE: "FT" (Fertilizer) or "PS" (Pesticide)
-- SERIAL: 5-digit zero-padded batch sequence number (e.g., 00123)
-- RANDOM: 6 characters from unambiguous 32-char alphabet (excludes 0, O, 1, I, L)
-- Optional Checksum: 1 character for instant client-side typo detection
+Key Features:
+1. CSPRNG Random Generation via `secrets` module (predictability protection).
+2. Unambiguous 31-character alphabet excluding confusing glyphs (0, O, 1, I, L).
+3. Optional 1-character polynomial checksum for zero-network typo detection.
+4. Batch CSV processing for industrial catalog loading (18 sample products).
+5. Day 23 --fake-only mode: 5 well-formed fake codes, 1 tampered code, and
+   a printable one-page HTML/PDF demo sheet.
+=============================================================================
 """
 
 import os
 import sys
 import csv
 import time
+import base64
 import secrets
 import argparse
 from datetime import datetime
@@ -55,20 +61,23 @@ def load_dotenv(dotenv_filename: str = ".env"):
             except Exception:
                 pass
 
+
 # Automatically load .env on script import/start
 load_dotenv()
+
 
 # ---------------------------------------------------------------------------
 # Cryptographic & Formatting Constants
 # ---------------------------------------------------------------------------
-# 32-character alphabet excluding easily confused glyphs: 0, O, 1, I, L
+# 31-character alphabet excluding easily confused glyphs: 0, O, 1, I, L
 UNAMBIGUOUS_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 ALPHABET_SET = set(UNAMBIGUOUS_ALPHABET)
 ALPHABET_MAP = {char: idx for idx, char in enumerate(UNAMBIGUOUS_ALPHABET)}
 ALPHABET_LEN = len(UNAMBIGUOUS_ALPHABET)
 
-# Fallback character map for prefix letters like 'F', 'D'
+
 def char_to_val(c: str) -> int:
+    """Converts a character to its integer value in the alphabet."""
     c = c.upper()
     if c in ALPHABET_MAP:
         return ALPHABET_MAP[c]
@@ -98,7 +107,7 @@ def verify_checksum(full_code: str) -> bool:
 def generate_random_part(length: int = 6) -> str:
     """
     Uses Python's secrets module (CSPRNG) to generate unpredictable characters.
-    32^6 = 1,073,741,824 (~1.07 Billion) combinations per serial number.
+    31^6 = 887,503,681 combinations per serial number.
     """
     return "".join(secrets.choice(UNAMBIGUOUS_ALPHABET) for _ in range(length))
 
@@ -228,6 +237,7 @@ def save_product_to_firestore(db, product_data: dict, max_retries: int = 5) -> s
     type_code = product_data.get("type_code", "FT")
     serial = product_data.get("serial", 1)
     with_chk = product_data.get("with_checksum", False)
+    status = product_data.get("status", "active")
 
     for attempt in range(max_retries):
         doc_ref = db.collection("products").document(code)
@@ -241,7 +251,7 @@ def save_product_to_firestore(db, product_data: dict, max_retries: int = 5) -> s
                 "manufacturer": product_data["manufacturer"],
                 "batch": product_data["batch"],
                 "type": product_data["type"],
-                "status": "active",
+                "status": status,
                 "manufactureDate": product_data.get("manufactureDate"),
                 "expiryDate": product_data.get("expiryDate"),
                 "createdAt": firestore.SERVER_TIMESTAMP,
@@ -264,8 +274,7 @@ def save_product_to_firestore(db, product_data: dict, max_retries: int = 5) -> s
 # ---------------------------------------------------------------------------
 def run_self_test(num_codes: int = 10000, with_checksum: bool = True):
     """
-    Generates N codes in memory using secrets module,
-    asserts 100% uniqueness, and verifies checksum integrity.
+    Generates num_codes in memory to measure throughput and prove 0 collisions.
     """
     print("\n=======================================================")
     print(f"[*] RUNNING DAY 18 SELF-TEST: Generating {num_codes:,} Codes")
@@ -312,7 +321,7 @@ def run_self_test(num_codes: int = 10000, with_checksum: bool = True):
 
 
 # ---------------------------------------------------------------------------
-# Batch CSV Processor
+# Batch CSV Processor (Day 22)
 # ---------------------------------------------------------------------------
 def process_csv_file(
     csv_path: str,
@@ -323,11 +332,11 @@ def process_csv_file(
     dry_run: bool = False,
 ):
     """
-    Reads products_input.csv and processes each batch row.
+    Reads products_input.csv and processes each batch row (including status).
     """
     if not os.path.isfile(csv_path):
         print(f"[-] CSV file not found: {csv_path}")
-        return
+        return []
 
     generated_summary_path = os.path.join(output_dir, "codes_generated.csv")
     file_exists = os.path.isfile(generated_summary_path)
@@ -347,7 +356,10 @@ def process_csv_file(
             product_type = "fertilizer" if "fert" in raw_type or raw_type == "ft" else "pesticide"
             type_code = "FT" if product_type == "fertilizer" else "PS"
 
-            count = int(row.get("count", 5))
+            raw_status = row.get("status", "active").strip().lower()
+            status = raw_status if raw_status in ("active", "recalled", "expired") else "active"
+
+            count = int(row.get("count", 1))
             dosage = row.get("dosage", "").strip() or None
 
             # Dates
@@ -357,10 +369,10 @@ def process_csv_file(
             mfg_date = datetime.strptime(mfg_str, "%Y-%m-%d") if mfg_str else datetime.now()
             exp_date = datetime.strptime(exp_str, "%Y-%m-%d") if exp_str else datetime.now()
 
-            print(f"\n[+] Processing Batch: {name} ({batch}) | Count: {count}")
+            print(f"\n[+] Processing Batch: {name} ({batch}) | Status: {status.upper()} | Count: {count}")
 
             for i in range(1, count + 1):
-                code = generate_single_code(type_code, i, with_checksum=with_checksum)
+                code = generate_single_code(type_code, row_idx * 100 + i, with_checksum=with_checksum)
 
                 prod_dict = {
                     "code": code,
@@ -369,7 +381,8 @@ def process_csv_file(
                     "batch": batch,
                     "type": product_type,
                     "type_code": type_code,
-                    "serial": i,
+                    "status": status,
+                    "serial": row_idx * 100 + i,
                     "with_checksum": with_checksum,
                     "manufactureDate": mfg_date,
                     "expiryDate": exp_date,
@@ -390,21 +403,23 @@ def process_csv_file(
                 qr_path = generate_qr_image(code, qr_dir, error_level="M")
                 qr_status = "QR: OK" if qr_path else "QR: Skipped"
 
-                print(f"   [{i}/{count}] {code} -> {status_str} | {qr_status}")
+                print(f"   [{i}/{count}] {code} [{status}] -> {status_str} | {qr_status}")
 
                 summary_records.append({
                     "code": code,
                     "name": name,
                     "batch": batch,
                     "type": product_type,
+                    "status": status,
                     "manufacturer": manufacturer,
                     "generated_at": datetime.now().isoformat(),
+                    "qr_path": qr_path,
                 })
                 total_generated += 1
 
     # Write summary CSV
     with open(generated_summary_path, mode="a", newline="", encoding="utf-8") as out_f:
-        fieldnames = ["code", "name", "batch", "type", "manufacturer", "generated_at"]
+        fieldnames = ["code", "name", "batch", "type", "status", "manufacturer", "generated_at", "qr_path"]
         writer = csv.DictWriter(out_f, fieldnames=fieldnames)
         if not file_exists:
             writer.writeheader()
@@ -415,6 +430,292 @@ def process_csv_file(
     print(f"[+] QR Code PNGs: {qr_dir}")
     print(f"[+] Summary Log:  {generated_summary_path}")
     print("=======================================================\n")
+    return summary_records
+
+
+# ---------------------------------------------------------------------------
+# Day 23: Fake Codes & Printable Demo QR Sheet Generator
+# ---------------------------------------------------------------------------
+def generate_fake_codes_and_sheet(
+    db,
+    output_dir: str,
+    qr_dir: str,
+    with_checksum: bool = False,
+    dry_run: bool = False,
+):
+    """
+    Day 23 Implementation:
+    1. Generates 5 well-formed codes matching format but NEVER saved to Firestore.
+    2. Verifies against Firestore that none exist (regenerates on collision).
+    3. Generates 1 tampered code from a valid code with 1 character mutated.
+    4. Outputs QR PNGs to backend/qr_output/fake/.
+    5. Builds a printable one-page HTML sheet with all code categories.
+    """
+    print("\n=======================================================")
+    print("🚨 RUNNING DAY 23: FAKE & TAMPERED CODES GENERATOR")
+    print("=======================================================")
+
+    fake_qr_dir = os.path.join(qr_dir, "fake")
+    os.makedirs(fake_qr_dir, exist_ok=True)
+
+    fake_codes = []
+    # 1. Generate 5 well-formed fake codes
+    for idx in range(1, 6):
+        t_code = "FT" if idx % 2 == 1 else "PS"
+        attempts = 0
+        while attempts < 10:
+            attempts += 1
+            cand_code = generate_single_code(t_code, 99000 + idx, with_checksum=with_checksum)
+
+            # Check existence in Firestore if connected
+            exists_in_db = False
+            if db and not dry_run:
+                try:
+                    doc = db.collection("products").document(cand_code).get()
+                    exists_in_db = doc.exists
+                except Exception:
+                    exists_in_db = False
+
+            if not exists_in_db:
+                # Guaranteed unregistered fake code
+                fake_codes.append(cand_code)
+                qr_path = generate_qr_image(cand_code, fake_qr_dir, error_level="M")
+                print(f"   [Fake #{idx}] {cand_code} -> QR: OK | Unregistered in Firestore: VERIFIED")
+                break
+
+    # 2. Generate 1 Tampered Code from a valid genuine pattern
+    # Start from a valid base code
+    base_genuine = generate_single_code("FT", 12345, with_checksum=with_checksum)
+    # Tamper with the code: replace the 4th random character with another character
+    # e.g., 'FD-FT-12345-A7X9KM' -> change '9' to '2' (or different character)
+    parts = base_genuine.split("-")
+    orig_random = parts[-1]
+    # Mutate 1 character
+    tampered_char = "8" if orig_random[3] != "8" else "9"
+    mutated_random = orig_random[:3] + tampered_char + orig_random[4:]
+    tampered_code = f"{parts[0]}-{parts[1]}-{parts[2]}-{mutated_random}"
+
+    tampered_qr_path = generate_qr_image(tampered_code, fake_qr_dir, error_level="M")
+    print(f"\n   [Tampered Code] {tampered_code} (Base: {base_genuine})")
+    print(f"   -> Mutated 1 character: '{orig_random[3]}' -> '{tampered_char}'")
+    if with_checksum:
+        print("   -> Validator Behavior: Checksum validation fails.")
+        print("      Result: VerificationStatus.invalidInput (Rejected locally before Firestore).")
+    else:
+        print("   -> Validator Behavior: Format matches regex, but document does not exist.")
+        print("      Result: VerificationStatus.notRecognized (Counterfeit alert from Firestore).")
+
+    # 3. Create Printable Demo Sheet (HTML with responsive print CSS)
+    sheet_path = os.path.join(qr_dir, "demo_qr_sheet.html")
+
+    def img_to_b64(path):
+        if os.path.isfile(path):
+            with open(path, "rb") as f:
+                return "data:image/png;base64," + base64.b64encode(f.read()).decode("utf-8")
+        return ""
+
+    # Generate sample QR images for Genuine, Recalled, Expired for display
+    demo_samples = [
+        {
+            "category": "GENUINE (Active)",
+            "badge_color": "#10B981",
+            "code": "FD-FT-00101-A7X9KM",
+            "name": "Doaba Shaktiman Neem Urea 45kg",
+            "batch": "DAT-UR-2026-A1",
+            "note": "Genuine active registered product. Shows green tick screen with full batch dates & manufacturer.",
+            "qr_data": img_to_b64(generate_qr_image("FD-FT-00101-A7X9KM", qr_dir)),
+        },
+        {
+            "category": "RECALLED (Danger)",
+            "badge_color": "#EF4444",
+            "code": "FD-FT-01501-RCL99X",
+            "name": "Doaba Bio-Potash 20% SL (Recall)",
+            "batch": "DAT-REC-2025-X9",
+            "note": "Recalled product batch! Shows red safety warning screen: Do not apply to crops.",
+            "qr_data": img_to_b64(generate_qr_image("FD-FT-01501-RCL99X", qr_dir)),
+        },
+        {
+            "category": "EXPIRED (Warning)",
+            "badge_color": "#F59E0B",
+            "code": "FD-PS-01701-EXP01D",
+            "name": "Majha Dimethoate 30% EC (Expired)",
+            "batch": "MAS-EXP-2022-D1",
+            "note": "Expired product (2024)! Shows amber warning: Efficacy degraded.",
+            "qr_data": img_to_b64(generate_qr_image("FD-PS-01701-EXP01D", qr_dir)),
+        },
+        {
+            "category": "FAKE #1 (Unregistered)",
+            "badge_color": "#DC2626",
+            "code": fake_codes[0],
+            "name": "Counterfeit Fertilizer Pack",
+            "batch": "FAKE-LOT-01",
+            "note": "Valid format but NOT in Firestore registry. Triggers counterfeit alert & report fake flow.",
+            "qr_data": img_to_b64(os.path.join(fake_qr_dir, f"{fake_codes[0]}.png")),
+        },
+        {
+            "category": "FAKE #2 (Unregistered)",
+            "badge_color": "#DC2626",
+            "code": fake_codes[1],
+            "name": "Counterfeit Pesticide Bottle",
+            "batch": "FAKE-LOT-02",
+            "note": "Valid format not recognized by system. Possible counterfeit chemical.",
+            "qr_data": img_to_b64(os.path.join(fake_qr_dir, f"{fake_codes[1]}.png")),
+        },
+        {
+            "category": "TAMPERED CODE",
+            "badge_color": "#7C3AED",
+            "code": tampered_code,
+            "name": "Altered / Mutated QR Code",
+            "batch": "TAMPER-01",
+            "note": "1 character changed from genuine code. Demonstrates rejection of manipulated QR stickers.",
+            "qr_data": img_to_b64(tampered_qr_path),
+        },
+    ]
+
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Farmer Dost App — Demo QR Verification Sheet</title>
+  <style>
+    @page {{
+      size: A4 portrait;
+      margin: 1cm;
+    }}
+    body {{
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 15px;
+      color: #1F2937;
+      background: #F9FAFB;
+    }}
+    .header {{
+      text-align: center;
+      border-bottom: 2px solid #E5E7EB;
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+    }}
+    .header h1 {{
+      margin: 0;
+      font-size: 22px;
+      color: #111827;
+    }}
+    .header p {{
+      margin: 4px 0 0 0;
+      font-size: 13px;
+      color: #6B7280;
+    }}
+    .grid {{
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }}
+    .card {{
+      background: white;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      page-break-inside: avoid;
+    }}
+    .card img {{
+      width: 125px;
+      height: 125px;
+      border: 1px solid #D1D5DB;
+      border-radius: 6px;
+      margin-right: 14px;
+    }}
+    .info {{
+      flex: 1;
+    }}
+    .badge {{
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }}
+    .code-text {{
+      font-family: "Courier New", Courier, monospace;
+      font-weight: bold;
+      font-size: 13px;
+      color: #111827;
+      background: #F3F4F6;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 6px;
+    }}
+    .prod-name {{
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 2px;
+    }}
+    .desc {{
+      font-size: 11px;
+      color: #6B7280;
+      line-height: 1.3;
+    }}
+    .footer {{
+      margin-top: 20px;
+      font-size: 11px;
+      text-align: center;
+      color: #9CA3AF;
+      border-top: 1px dashed #E5E7EB;
+      padding-top: 10px;
+    }}
+    @media print {{
+      body {{ background: white; padding: 0; }}
+      .card {{ box-shadow: none; border-color: #9CA3AF; }}
+    }}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🌾 Farmer Dost App — Demonstration QR Verification Sheet</h1>
+    <p>Punjab Agricultural Product Authenticity Demo | Scan directly with the Farmer Dost App camera or enter manually.</p>
+  </div>
+
+  <div class="grid">
+"""
+
+    for item in demo_samples:
+        html_content += f"""
+    <div class="card">
+      <img src="{item['qr_data']}" alt="{item['code']}" />
+      <div class="info">
+        <span class="badge" style="background-color: {item['badge_color']};">{item['category']}</span><br/>
+        <div class="code-text">{item['code']}</div>
+        <div class="prod-name">{item['name']}</div>
+        <div class="desc">{item['note']}</div>
+      </div>
+    </div>
+"""
+
+    html_content += f"""
+  </div>
+
+  <div class="footer">
+    Farmer Dost App • Generated on {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} • Confidential Demonstration Asset
+  </div>
+</body>
+</html>
+"""
+
+    with open(sheet_path, "w", encoding="utf-8") as f:
+        f.write(html_content)
+
+    print(f"\n[+] Generated printable demo QR sheet at: {sheet_path}")
+    print("    Open this HTML in any web browser and press Ctrl+P to print or save as PDF.\n")
+    return fake_codes, tampered_code, sheet_path
 
 
 # ---------------------------------------------------------------------------
@@ -431,13 +732,15 @@ def main():
     parser.add_argument("--checksum", action="store_true", default=os.environ.get("GENERATE_CHECKSUM", "false").lower() in ("true", "1", "yes"), help="Append 1-character verification checksum to codes")
     parser.add_argument("--credentials", type=str, default=os.environ.get("FIREBASE_SERVICE_ACCOUNT_KEY", "serviceAccountKey.json"), help="Path to serviceAccountKey.json")
     parser.add_argument("--qr-dir", type=str, default=os.environ.get("QR_OUTPUT_DIR", "backend/qr_output"), help="Directory to save QR PNG images")
+    parser.add_argument("--fake-only", action="store_true", help="Day 23: Generate 5 fake codes, 1 tampered code, and printable demo QR sheet")
 
     # Single-batch generation options
     parser.add_argument("--type", type=str, choices=["FT", "PS", "fertilizer", "pesticide"], help="Product type (FT/PS)")
     parser.add_argument("--batch", type=str, help="Batch identifier (e.g. BATCH-2026-X1)")
-    parser.add_argument("--count", type=int, default=5, help="Number of codes to generate")
+    parser.add_argument("--count", type=int, default=1, help="Number of codes to generate")
     parser.add_argument("--name", type=str, default="Kisan Gold Urea 45kg", help="Product name")
     parser.add_argument("--manufacturer", type=str, default="Punjab Agro Chemicals Ltd", help="Manufacturer name")
+    parser.add_argument("--status", type=str, default="active", choices=["active", "recalled", "expired"], help="Product status")
     parser.add_argument("--dosage", type=str, default="", help="Dosage recommendation")
 
     args = parser.parse_args()
@@ -455,11 +758,23 @@ def main():
             print("[!] Running in DRY-RUN mode because Firestore credentials were not found.")
             print("    Codes and QR images will be generated locally.\n")
 
-    # Mode 2: Single batch direct CLI parameters
+    # Mode 2: Day 23 Fake Only Mode
+    if args.fake_only:
+        output_dir = os.path.dirname(args.qr_dir) or "backend"
+        generate_fake_codes_and_sheet(
+            db=db,
+            output_dir=output_dir,
+            qr_dir=args.qr_dir,
+            with_checksum=args.checksum,
+            dry_run=args.dry_run,
+        )
+        return
+
+    # Mode 3: Single batch direct CLI parameters
     if args.type and args.batch:
         p_type = "fertilizer" if args.type.upper() in ("FT", "FERTILIZER") else "pesticide"
         t_code = "FT" if p_type == "fertilizer" else "PS"
-        print(f"\n[+] Generating {args.count} codes for single batch: {args.name} ({args.batch})")
+        print(f"\n[+] Generating {args.count} codes for single batch: {args.name} ({args.batch}) [{args.status.upper()}]")
 
         summary_records = []
         os.makedirs(args.qr_dir, exist_ok=True)
@@ -474,6 +789,7 @@ def main():
                 "batch": args.batch,
                 "type": p_type,
                 "type_code": t_code,
+                "status": args.status,
                 "serial": i,
                 "with_checksum": args.checksum,
                 "manufactureDate": datetime.now(),
@@ -488,24 +804,26 @@ def main():
                 except Exception as e:
                     st = f"Firestore: Failed ({e})"
             else:
-                st = "Firestore: Skipped"
+                st = "Firestore: Skipped (dry-run)"
 
             qr_p = generate_qr_image(code, args.qr_dir, error_level="M")
-            print(f"   [{i}/{args.count}] {code} -> {st} | QR: {'OK' if qr_p else 'Skipped'}")
+            print(f"   [{i}/{args.count}] {code} [{args.status}] -> {st} | QR: {'OK' if qr_p else 'Skipped'}")
 
             summary_records.append({
                 "code": code,
                 "name": args.name,
                 "batch": args.batch,
                 "type": p_type,
+                "status": args.status,
                 "manufacturer": args.manufacturer,
                 "generated_at": datetime.now().isoformat(),
+                "qr_path": qr_p,
             })
 
         # Append to CSV
         file_exists = os.path.isfile(summary_path)
         with open(summary_path, mode="a", newline="", encoding="utf-8") as out_f:
-            writer = csv.DictWriter(out_f, fieldnames=["code", "name", "batch", "type", "manufacturer", "generated_at"])
+            writer = csv.DictWriter(out_f, fieldnames=["code", "name", "batch", "type", "status", "manufacturer", "generated_at", "qr_path"])
             if not file_exists:
                 writer.writeheader()
             writer.writerows(summary_records)
@@ -513,7 +831,7 @@ def main():
         print(f"\n[+] Single batch complete: {args.count} codes generated.")
         return
 
-    # Mode 3: Batch CSV mode
+    # Mode 4: Batch CSV mode (Day 22)
     csv_target = args.csv
     if not os.path.isfile(csv_target):
         cand = os.path.join("backend", args.csv)

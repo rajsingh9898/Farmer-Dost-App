@@ -2,7 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // -------------------------------------------------------------------------
+    // Helper Functions
+    // -------------------------------------------------------------------------
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -11,44 +13,77 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // -------------------------------------------------------------------------
     // 1. Products Collection (/products/{code})
-    // Master registry of genuine fertilizers and pesticides.
-    // READ: Public access so any farmer can verify authenticity even before full signup.
-    // WRITE: Strictly forbidden from client app; managed via backend admin or seed scripts.
+    // -------------------------------------------------------------------------
+    // Master registry of genuine agricultural chemicals.
+    // - Signed-in users can read via direct document get (no collection listing).
+    // - Client app writes are strictly forbidden (managed via Python Admin SDK).
     match /products/{code} {
-      allow read: if true;
+      allow get: if isAuthenticated();
+      allow list: if false;
       allow write: if false;
     }
 
-    // 2. Users Collection (/users/{uid})
-    // Farmer profile records.
-    // READ & WRITE: Strictly limited to the authenticated user matching their own uid.
+    // -------------------------------------------------------------------------
+    // 2. Users Collection (/users/{userId})
+    // -------------------------------------------------------------------------
+    // Farmer profile records keyed by Firebase Auth UID.
+    // - Read/write restricted to the authenticated user matching the document UID.
+    // - Immutable createdAt: cannot be altered after creation.
+    // - Field type validation (name, email, language).
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0
+                    && request.resource.data.createdAt == request.time;
+      allow update: if isOwner(userId)
+                    && request.resource.data.createdAt == resource.data.createdAt
+                    && (!('name' in request.resource.data) || request.resource.data.name is string)
+                    && (!('language' in request.resource.data) || request.resource.data.language is string);
+      allow delete: if false;
     }
 
+    // -------------------------------------------------------------------------
     // 3. Scans Collection (/scans/{scanId})
-    // Immutable audit trail of every scan made by farmers.
-    // CREATE: Authenticated user writing a record with their own userId.
-    // READ: Farmer can only read their own scan history.
-    // UPDATE / DELETE: Strictly forbidden to maintain audit integrity.
+    // -------------------------------------------------------------------------
+    // Immutable audit trail of every QR verification attempt.
+    // - CREATE: Must belong to caller and timestamp must match server time.
+    // - READ: Farmers can only query their own scan history.
+    // - UPDATE / DELETE: Blocked to prevent audit tampering.
     match /scans/{scanId} {
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.timestamp == request.time;
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow update, delete: if false;
     }
 
+    // -------------------------------------------------------------------------
     // 4. Reports Collection (/reports/{reportId})
-    // Farmer reports of counterfeit, suspicious, or unrecognized packages.
-    // CREATE: Authenticated farmer submitting a report with their own userId and optional note <= 100 chars.
-    // READ: The submitting farmer can read their report.
-    // UPDATE / DELETE: Admin only (forbidden to mobile client users).
+    // -------------------------------------------------------------------------
+    // Farmer-submitted counterfeit reports.
+    // - CREATE: Caller's UID, status must be 'pending', timestamp matches server time,
+    //   note <= 100 characters, location is latlng or null.
+    // - READ: Only the reporting farmer can read their own report.
+    // - UPDATE / DELETE: Blocked for clients (admin panel reviews).
     match /reports/{reportId} {
-      allow create: if isAuthenticated() 
+      allow create: if isAuthenticated()
                     && request.resource.data.userId == request.auth.uid
-                    && (!('note' in request.resource.data) || request.resource.data.note == null || request.resource.data.note.size() <= 100);
+                    && request.resource.data.status == "pending"
+                    && request.resource.data.timestamp == request.time
+                    && (!('note' in request.resource.data) || request.resource.data.note == null || (request.resource.data.note is string && request.resource.data.note.size() <= 100))
+                    && (!('location' in request.resource.data) || request.resource.data.location == null || request.resource.data.location is latlng);
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
       allow update, delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. Default Deny Everything Else
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

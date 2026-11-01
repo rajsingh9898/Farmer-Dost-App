@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
@@ -14,10 +17,13 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    // [Day 16 Verification] Uncomment to run the Firestore console structure checks:
-    // await runDay16FirestoreVerification();
-    // [Day 17 Verification] Uncomment to run Auth sign-in, UID, and users/{uid} checks:
-    // await runDay17AuthVerification();
+
+    // [Day 27 Emulator Support] Toggle with flutter run --dart-define=USE_FIREBASE_EMULATOR=true
+    if (kDebugMode && const bool.fromEnvironment('USE_FIREBASE_EMULATOR', defaultValue: false)) {
+      FirebaseFirestore.instance.useFirestoreEmulator('127.0.0.1', 8080);
+      await FirebaseAuth.instance.useAuthEmulator('127.0.0.1', 9099);
+      debugPrint('[Firebase] Connected to local Emulators (Firestore: 8080, Auth: 9099)');
+    }
   } catch (e) {
     debugPrint('Firebase initialization warning: $e');
   }

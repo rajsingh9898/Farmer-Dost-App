@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../services/auth_service.dart';
-import '../services/firestore_service.dart';
-import '../models/scan_model.dart';
+import '../services/services.dart';
 import '../theme/app_theme.dart';
 import 'scan_screen.dart';
+import 'result_screen.dart';
 import 'profile_screen.dart';
 import 'login_screen.dart';
 
@@ -23,13 +22,13 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadRecentScans();
   }
+
   Future<void> _loadRecentScans() async {
     try {
-      final userId = AuthService().currentUserId;
-      final scans = await FirestoreService().getScanHistory(userId);
+      final history = await ScanHistoryService().getScanHistory(limit: 5);
       if (!mounted) return;
       setState(() {
-        _recentScans = scans.take(3).toList();
+        _recentScans = history.scans;
         _isLoadingScans = false;
       });
     } catch (e) {
@@ -239,45 +238,64 @@ class _HomeScreenState extends State<HomeScreen> {
                         final isGenuine = scan.result.toLowerCase() == 'genuine';
                         final formattedDate = DateFormat('MMM d, yyyy').format(scan.timestamp);
 
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppDimensions.screenPaddingSmall,
-                            vertical: AppDimensions.spaceSmall + 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.background,
-                            borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
-                            border: Border.all(color: AppColors.textSecondary.withValues(alpha: 0.15)),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      scan.productName ?? 'Code: ${scan.productCode}',
-                                      style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.w500),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      formattedDate,
-                                      style: AppStyles.mutedStyle,
-                                    ),
-                                  ],
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
+                          onTap: () async {
+                            final result = await verificationService.verifyProduct(scan.productCode);
+                            if (!context.mounted) return;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ResultScreen(
+                                  verificationResult: result,
+                                  scannedCode: result.scannedCode,
+                                  isGenuine: result.isGenuine,
+                                  connectionError: result.status == VerificationStatus.networkError,
+                                  errorMessage: result.message,
                                 ),
                               ),
-                              const SizedBox(width: AppDimensions.spaceSmall),
-                              Icon(
-                                isGenuine
-                                    ? Icons.check_circle_rounded
-                                    : Icons.warning_rounded,
-                                color: isGenuine
-                                    ? AppColors.primary
-                                    : AppColors.danger,
-                                size: 22,
-                              ),
-                            ],
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppDimensions.screenPaddingSmall,
+                              vertical: AppDimensions.spaceSmall + 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
+                              border: Border.all(color: AppColors.textSecondary.withValues(alpha: 0.15)),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        scan.productName ?? 'Code: ${scan.productCode}',
+                                        style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.w500),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        formattedDate,
+                                        style: AppStyles.mutedStyle,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: AppDimensions.spaceSmall),
+                                Icon(
+                                  isGenuine
+                                      ? Icons.check_circle_rounded
+                                      : Icons.warning_rounded,
+                                  color: isGenuine
+                                      ? AppColors.primary
+                                      : AppColors.danger,
+                                  size: 22,
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },

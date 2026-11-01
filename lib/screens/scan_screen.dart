@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import '../services/firestore_service.dart';
-import '../services/auth_service.dart';
+import '../services/services.dart';
 import '../widgets/corner_brackets_painter.dart';
 import '../theme/app_theme.dart';
 import 'result_screen.dart';
@@ -35,22 +34,19 @@ class _ScanScreenState extends State<ScanScreen> {
     if (_isProcessing) return;
     setState(() => _isProcessing = true);
 
-    final userId = AuthService().currentUserId;
-
     try {
-      final product = await FirestoreService().verifyProduct(code, userId: userId);
-      final isGenuine = product != null && product.isGenuine;
+      final result = await verificationService.verifyProduct(code);
       if (!mounted) return;
 
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => ResultScreen(
-            isGenuine: isGenuine,
-            productData: product?.toMap(),
-            scannedCode: code,
-            product: product,
-            connectionError: false,
+            verificationResult: result,
+            scannedCode: result.scannedCode,
+            isGenuine: result.isGenuine,
+            connectionError: result.status == VerificationStatus.networkError,
+            errorMessage: result.message,
           ),
         ),
       );
@@ -64,7 +60,7 @@ class _ScanScreenState extends State<ScanScreen> {
             isGenuine: false,
             scannedCode: code,
             connectionError: true,
-            errorMessage: "Can't verify right now, check your connection.",
+            errorMessage: "Unable to verify product. Please check your network connection.",
           ),
         ),
       );
@@ -93,9 +89,10 @@ class _ScanScreenState extends State<ScanScreen> {
             children: [
               TextField(
                 controller: _manualCodeController,
+                textCapitalization: TextCapitalization.characters,
                 decoration: InputDecoration(
-                  labelText: "QR/Barcode Code",
-                  hintText: "e.g. GENUINE-123 or FAKE-456",
+                  labelText: "QR / Product Code",
+                  hintText: "e.g. FD-FT-00101-GEN001",
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
                   ),
@@ -107,28 +104,24 @@ class _ScanScreenState extends State<ScanScreen> {
                 runSpacing: 4,
                 children: [
                   ActionChip(
-                    label: const Text("GENUINE-123"),
-                    onPressed: () => _manualCodeController.text = "GENUINE-123",
+                    label: const Text("Genuine Urea"),
+                    onPressed: () => _manualCodeController.text = "FD-FT-00101-GEN001",
                   ),
                   ActionChip(
-                    label: const Text("IFFCO-DAP-50KG"),
-                    onPressed: () => _manualCodeController.text = "IFFCO-DAP-50KG",
+                    label: const Text("Recalled Batch"),
+                    onPressed: () => _manualCodeController.text = "FD-PS-00202-REC002",
                   ),
                   ActionChip(
-                    label: const Text("BAYER-CORAGEN"),
-                    onPressed: () => _manualCodeController.text = "BAYER-CORAGEN",
+                    label: const Text("Expired Zinc"),
+                    onPressed: () => _manualCodeController.text = "FD-FT-00303-EXP003",
                   ),
                   ActionChip(
-                    label: const Text("EXPIRED-CHLORPYRIFOS"),
-                    onPressed: () => _manualCodeController.text = "EXPIRED-CHLORPYRIFOS",
+                    label: const Text("Fake Code"),
+                    onPressed: () => _manualCodeController.text = "FD-FT-99999-NOTFND",
                   ),
                   ActionChip(
-                    label: const Text("FAKE-456"),
-                    onPressed: () => _manualCodeController.text = "FAKE-456",
-                  ),
-                  ActionChip(
-                    label: const Text("ERROR-500"),
-                    onPressed: () => _manualCodeController.text = "ERROR-500",
+                    label: const Text("Invalid Format"),
+                    onPressed: () => _manualCodeController.text = "BAD-CODE-FORMAT",
                   ),
                 ],
               ),

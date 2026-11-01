@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
-import '../models/report_model.dart';
-import '../services/firestore_service.dart';
-import '../services/auth_service.dart';
+import '../services/services.dart';
 import '../theme/app_theme.dart';
 
 class ReportScreen extends StatefulWidget {
@@ -108,41 +105,62 @@ class _ReportScreenState extends State<ReportScreen> {
 
     setState(() => _isSubmitting = true);
 
-    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? AuthService().currentUserId;
-    final noteText = _noteController.text.trim();
-
-    final reportPayload = ReportModel(
-      productCode: widget.scannedCode,
-      userId: currentUid,
-      location: _locationString,
-      geoPoint: _geoPoint,
-      note: noteText.isNotEmpty ? noteText : null,
-      status: 'pending',
-    );
+    final code = _codeController.text.trim().isNotEmpty
+        ? _codeController.text.trim()
+        : widget.scannedCode;
+    final noteText = _noteController.text;
 
     try {
-      await FirestoreService().submitReport(reportPayload);
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Report submitted, thank you"),
-          backgroundColor: AppColors.primary,
-          duration: Duration(seconds: 3),
-        ),
+      final result = await reportService.submitReport(
+        productCode: code,
+        location: _geoPoint,
+        note: noteText,
       );
 
-      // Return to HomeScreen
-      Navigator.popUntil(context, (route) => route.isFirst);
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+
+      if (result.status == ReportStatus.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Report submitted successfully! Thank you for protecting Punjab farmers."),
+            backgroundColor: AppColors.primary,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        Navigator.popUntil(context, (route) => route.isFirst);
+      } else if (result.status == ReportStatus.alreadyReported) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("You have already reported this product code. Your report is pending review."),
+            backgroundColor: AppColors.caution,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        Navigator.popUntil(context, (route) => route.isFirst);
+      } else if (result.status == ReportStatus.notSignedIn) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Please sign in to submit a report."),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.message),
+            backgroundColor: AppColors.danger,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString()),
+          content: Text("Submission error: $e"),
           backgroundColor: AppColors.danger,
-          duration: const Duration(seconds: 4),
         ),
       );
     }
