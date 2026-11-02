@@ -55,7 +55,7 @@ When architecting Cloud Firestore for high-scale mobile apps, using the QR code 
 
 The pre-validation regex:
 ```dart
-final RegExp _kProductCodeRegex = RegExp(r'^FD-(FT|PS)-\d{5}-[A-Z0-9]{6,}$');
+final RegExp kProductCodeRegex = RegExp(r'^FD-(FT|PS)-\d{5}-[A-Z0-9]{6,12}$');
 ```
 
 ### Why this is critical:

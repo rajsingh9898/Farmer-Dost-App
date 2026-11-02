@@ -5,10 +5,23 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/services.dart';
 import '../widgets/error_card.dart';
 import '../theme/app_theme.dart';
-import 'report_screen.dart';
-import 'scan_screen.dart';
-import 'home_screen.dart';
+import '../routes/app_routes.dart';
+import '../l10n/app_strings.dart';
 
+/// Days 36 & 37 — Result Screen with Real Data, Accessibility, and Dynamic Feedback
+///
+/// Features:
+/// - Single unified template for all 6 verification outcomes:
+///   1. Genuine
+///   2. Recalled
+///   3. Expired
+///   4. Not Recognized (Counterfeit)
+///   5. Network Error (Offline)
+///   6. Invalid Input (Format error)
+/// - Scale & Fade-in icon animation (400ms, respects reduce-motion accessibility)
+/// - Haptic feedback: light impact for genuine, heavy for fake/recalled/expired, none for network error
+/// - Accessible semantics tags for screen readers
+/// - Strict navigation: hardware Android back goes Home (PopScope)
 class ResultScreen extends StatefulWidget {
   final bool isGenuine;
   final Map<String, dynamic>? productData;
@@ -33,23 +46,68 @@ class ResultScreen extends StatefulWidget {
   State<ResultScreen> createState() => _ResultScreenState();
 }
 
-class _ResultScreenState extends State<ResultScreen> {
+class _ResultScreenState extends State<ResultScreen> with SingleTickerProviderStateMixin {
+  late final AnimationController _animController;
+  late final Animation<double> _scaleAnimation;
+  late final Animation<double> _fadeAnimation;
+
+  // Sound cue setting (off by default per Day 37 specification)
+  bool _soundFeedbackEnabled = false;
+
   @override
   void initState() {
     super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+
+    _scaleAnimation = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutBack,
+    );
+
+    _fadeAnimation = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeIn,
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final bool reduceMotion = MediaQuery.of(context).disableAnimations;
+        if (reduceMotion) {
+          _animController.value = 1.0;
+        } else {
+          _animController.forward();
+        }
+      }
+    });
+
     _triggerHaptics();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
   }
 
   void _triggerHaptics() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.connectionError || (widget.verificationResult?.status == VerificationStatus.networkError)) {
+      final vResult = widget.verificationResult;
+      final bool isNetwork = widget.connectionError || (vResult?.status == VerificationStatus.networkError);
+      if (isNetwork) {
+        // No haptic feedback on network error as required by Day 37
         return;
       }
-      final isSuccess = (widget.verificationResult?.status == VerificationStatus.genuine) ||
+
+      final bool isGenuineProduct = (vResult?.status == VerificationStatus.genuine) ||
           (widget.isGenuine && !widget.connectionError);
-      if (isSuccess) {
+
+      if (isGenuineProduct) {
         HapticFeedback.lightImpact();
       } else {
+        // Heavy vibration for fake, recalled, and expired
         HapticFeedback.heavyImpact();
       }
     });
@@ -57,7 +115,7 @@ class _ResultScreenState extends State<ResultScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Resolve State from VerificationResult if present, else fallback to legacy props
+    // 1. Resolve Verification Status from VerificationResult or legacy properties
     final vResult = widget.verificationResult;
 
     final bool isNetworkError = (vResult?.status == VerificationStatus.networkError) || widget.connectionError;
@@ -69,9 +127,9 @@ class _ResultScreenState extends State<ResultScreen> {
     final bool isNotRecognized = (vResult?.status == VerificationStatus.notRecognized) ||
         (!widget.isGenuine && !isNetworkError && !isInvalidInput && !isRecalled && !isExpired);
     final bool isGenuine = (vResult?.status == VerificationStatus.genuine) ||
-        (widget.isGenuine && !isNetworkError && !isRecalled && !isExpired);
+        (widget.isGenuine && !isNetworkError && !isRecalled && !isExpired && !isNotRecognized && !isInvalidInput);
 
-    // Resolve Product Details
+    // 2. Resolve Product Details
     final String productName = vResult?.name ??
         widget.product?.name ??
         (widget.productData?['name'] as String?) ??
@@ -96,294 +154,227 @@ class _ResultScreenState extends State<ResultScreen> {
       if (raw is Timestamp) expiryDate = raw.toDate();
       if (raw is DateTime) expiryDate = raw;
     }
-
     final String expiryString = expiryDate != null ? DateFormat('dd MMM yyyy').format(expiryDate) : 'N/A';
 
-    // Color Theme Determination
+    // 3. Theme & Status Colors
     final Color primaryColor = isNetworkError
         ? AppColors.caution
         : (isRecalled || isExpired
             ? AppColors.caution
             : (isGenuine
                 ? AppColors.primary
-                : (isInvalidInput ? AppColors.caution : AppColors.danger)));
+                : (isInvalidInput ? AppColors.textSecondary : AppColors.danger)));
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text("Verification Result"),
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppDimensions.screenPadding,
-              vertical: AppDimensions.spaceLarge,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                if (isNetworkError) ...[
-                  // Network / Connection Error State
-                  ErrorCard(
-                    message: vResult?.message ??
-                        widget.errorMessage ??
-                        "Can't verify right now, check your cellular connection.",
-                    onRetry: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ScanScreen()),
-                      );
-                    },
+    final String statusHeading = isNetworkError
+        ? AppStrings.networkErrorHeading
+        : (isInvalidInput
+            ? AppStrings.invalidFormatHeading
+            : (isRecalled
+                ? AppStrings.recalledHeading
+                : (isExpired
+                    ? AppStrings.expiredHeading
+                    : (isGenuine ? AppStrings.genuineHeading : AppStrings.notRecognizedHeading))));
+
+    final String statusSubtitle = isNetworkError
+        ? AppStrings.networkErrorSubtitle
+        : (isInvalidInput
+            ? AppStrings.invalidFormatSubtitle
+            : (isRecalled
+                ? AppStrings.recalledSubtitle
+                : (isExpired
+                    ? AppStrings.expiredSubtitle
+                    : (isGenuine ? 'Verified authentic agricultural product.' : AppStrings.notRecognizedSubtitle))));
+
+    final IconData statusIcon = isNetworkError
+        ? Icons.wifi_off_rounded
+        : (isInvalidInput
+            ? Icons.qr_code_2_rounded
+            : (isRecalled
+                ? Icons.warning_amber_rounded
+                : (isExpired
+                    ? Icons.event_busy_rounded
+                    : (isGenuine ? Icons.check_circle_rounded : Icons.gpp_bad_rounded))));
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false);
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text(AppStrings.resultTitle),
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: AppStrings.backToHome,
+            onPressed: () {
+              Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false);
+            },
+          ),
+          actions: [
+            // Sound cue settings toggle (Day 37)
+            IconButton(
+              icon: Icon(
+                _soundFeedbackEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                color: Colors.white,
+              ),
+              tooltip: AppStrings.soundFeedbackLabel,
+              onPressed: () {
+                setState(() => _soundFeedbackEnabled = !_soundFeedbackEnabled);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    duration: const Duration(seconds: 1),
+                    content: Text(
+                      _soundFeedbackEnabled
+                          ? 'Audio cue feedback enabled'
+                          : 'Audio cue feedback muted',
+                    ),
                   ),
-                  const SizedBox(height: AppDimensions.spaceLarge),
-                  SizedBox(
-                    width: double.infinity,
-                    height: AppDimensions.buttonHeight,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(builder: (_) => const HomeScreen()),
-                          (route) => false,
-                        );
-                      },
-                      style: OutlinedButton.styleFrom(
-                        padding: AppDimensions.buttonPadding,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                );
+              },
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimensions.screenPadding,
+                vertical: AppDimensions.spaceLarge,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // =========================================================
+                  // Status Icon with Scale & Fade-in Animation (Day 37)
+                  // =========================================================
+                  ScaleTransition(
+                    scale: _scaleAnimation,
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: Semantics(
+                        label: 'Verification status icon: $statusHeading',
+                        child: Container(
+                          width: 90,
+                          height: 90,
+                          decoration: BoxDecoration(
+                            color: primaryColor,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: primaryColor.withValues(alpha: 0.3),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            statusIcon,
+                            size: 54,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
-                      child: const Text("Back to Home"),
-                    ),
-                  ),
-                ] else if (isInvalidInput) ...[
-                  // Invalid Format State
-                  Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      color: AppColors.caution,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.caution.withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.error_outline_rounded,
-                      size: 54,
-                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: AppDimensions.spaceMedium),
-                  Text(
-                    "Invalid Code Format",
-                    style: AppStyles.headingStyle.copyWith(color: AppColors.caution),
+
+                  // =========================================================
+                  // Status Heading & Subtitle
+                  // =========================================================
+                  Semantics(
+                    header: true,
+                    label: statusHeading,
+                    child: Text(
+                      statusHeading,
+                      textAlign: TextAlign.center,
+                      style: AppStyles.headingStyle.copyWith(color: primaryColor),
+                    ),
                   ),
                   const SizedBox(height: AppDimensions.spaceSmall),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Text(
-                      vResult?.message ??
-                          "The scanned code '${widget.scannedCode}' does not match the Farmer Dost code format. Valid example: FD-FT-00123-A7X9KM.",
+                      statusSubtitle,
                       textAlign: TextAlign.center,
-                      style: AppStyles.mutedStyle,
+                      style: AppStyles.mutedStyle.copyWith(fontSize: 14),
                     ),
                   ),
                   const SizedBox(height: AppDimensions.spaceLarge),
-                  SizedBox(
-                    width: double.infinity,
-                    height: AppDimensions.buttonHeight,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const ScanScreen()),
-                        );
+
+                  // =========================================================
+                  // Body Content by Status
+                  // =========================================================
+                  if (isNetworkError) ...[
+                    // 1. Network Error State (No Report Button!)
+                    ErrorCard(
+                      message: vResult?.message ??
+                          widget.errorMessage ??
+                          AppStrings.networkErrorSubtitle,
+                      onRetry: () {
+                        Navigator.pushReplacementNamed(context, AppRoutes.scan);
                       },
-                      icon: const Icon(Icons.qr_code_scanner),
-                      label: const Text("Scan Again"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: AppDimensions.buttonPadding,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                    ),
+                    const SizedBox(height: AppDimensions.spaceLarge),
+                    SizedBox(
+                      width: double.infinity,
+                      height: AppDimensions.buttonHeight,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false);
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: AppDimensions.buttonPadding,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                          ),
                         ),
+                        child: const Text(AppStrings.backToHome),
                       ),
                     ),
-                  ),
-                ] else ...[
-                  // 1. Status Icon Container
-                  Container(
-                    width: 90,
-                    height: 90,
-                    decoration: BoxDecoration(
-                      color: primaryColor,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: primaryColor.withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      isRecalled
-                          ? Icons.warning_amber_rounded
-                          : (isExpired
-                              ? Icons.event_busy_rounded
-                              : (isGenuine ? Icons.check_circle_rounded : Icons.gpp_bad_rounded)),
-                      size: 54,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: AppDimensions.spaceMedium),
-
-                  // 2. Heading Text
-                  Text(
-                    isRecalled
-                        ? "Product Recalled"
-                        : (isExpired
-                            ? "Product Expired"
-                            : (isGenuine
-                                ? "Genuine Product"
-                                : (isNotRecognized ? "Not Recognized / Fake" : "Unverified Product"))),
-                    style: AppStyles.headingStyle.copyWith(color: primaryColor),
-                  ),
-                  const SizedBox(height: AppDimensions.spaceSmall),
-
-                  // Optional message / alert banner
-                  if (vResult?.message != null && !isGenuine) ...[
+                  ] else if (isInvalidInput) ...[
+                    // 2. Invalid Input State (No Report Button!)
                     Container(
                       width: double.infinity,
-                      margin: const EdgeInsets.only(bottom: AppDimensions.spaceMedium),
                       padding: const EdgeInsets.all(AppDimensions.screenPaddingSmall),
-                      decoration: BoxDecoration(
-                        color: primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
-                        border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
-                      ),
-                      child: Text(
-                        vResult!.message!,
-                        textAlign: TextAlign.center,
-                        style: AppStyles.bodyStyle.copyWith(
-                          color: primaryColor,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ],
-
-                  // 3. Product Details Card (Genuine, Recalled, Expired)
-                  if (isGenuine || isExpired || isRecalled) ...[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(AppDimensions.screenPaddingSmall + 4),
                       decoration: BoxDecoration(
                         color: AppColors.surface,
                         borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
-                        border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                        border: Border.all(color: AppColors.textSecondary.withValues(alpha: 0.3)),
                       ),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Product Name
-                          Row(
-                            children: [
-                              Icon(
-                                type.contains('pesticide') ? Icons.bug_report : Icons.eco,
-                                color: primaryColor,
-                                size: 20,
-                              ),
-                              const SizedBox(width: AppDimensions.spaceSmall),
-                              Expanded(
-                                child: Text(
-                                  productName,
-                                  style: AppStyles.headingStyle.copyWith(fontSize: 16),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: AppDimensions.spaceMedium),
-
-                          // Metadata Fields
-                          _buildDetailRow("Manufacturer", manufacturer),
-                          _buildDetailRow("Batch Number", batch),
-                          _buildDetailRow("Product Type", type.toUpperCase()),
-                          _buildDetailRow("Expiry Date", expiryString, isHighlight: isExpired),
-                          _buildDetailRow("Product Code", widget.scannedCode),
-                        ],
-                      ),
-                    ),
-                  ] else ...[
-                    // Not Recognized Card
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppDimensions.screenPaddingSmall),
-                      child: Text(
-                        "This product code was not found in the official registry. Possible counterfeit product.",
-                        textAlign: TextAlign.center,
-                        style: AppStyles.mutedStyle.copyWith(fontSize: 15),
-                      ),
-                    ),
-                    const SizedBox(height: AppDimensions.spaceMedium),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(AppDimensions.screenPaddingSmall),
-                      decoration: BoxDecoration(
-                        color: AppColors.danger.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
-                        border: Border.all(color: AppColors.danger.withValues(alpha: 0.2)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.qr_code, size: 20, color: AppColors.danger),
-                          const SizedBox(width: AppDimensions.spaceSmall),
+                          const Icon(Icons.info_outline_rounded, color: AppColors.textSecondary, size: 28),
+                          const SizedBox(height: AppDimensions.spaceSmall),
                           Text(
-                            "Scanned Code: ${widget.scannedCode}",
-                            style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.w600),
+                            "Scanned Input: '${widget.scannedCode}'",
+                            textAlign: TextAlign.center,
+                            style: AppStyles.bodyStyle.copyWith(fontFamily: 'monospace', fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: AppDimensions.spaceSmall),
+                          Text(
+                            vResult?.message ?? "Valid format example: FD-FT-00123-A7X9KM",
+                            textAlign: TextAlign.center,
+                            style: AppStyles.mutedStyle.copyWith(fontSize: 12),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                  const SizedBox(height: AppDimensions.spaceXLarge),
-
-                  // 4. Action Buttons
-                  if (isGenuine) ...[
+                    const SizedBox(height: AppDimensions.spaceLarge),
                     SizedBox(
                       width: double.infinity,
                       height: AppDimensions.buttonHeight,
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (_) => const ScanScreen()),
-                          );
+                          Navigator.pushReplacementNamed(context, AppRoutes.scan);
                         },
                         icon: const Icon(Icons.qr_code_scanner),
-                        label: Text(
-                          "Scan Another",
-                          style: AppStyles.sectionHeadingStyle.copyWith(color: Colors.white),
-                        ),
+                        label: const Text(AppStrings.scanAgain),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
@@ -391,7 +382,6 @@ class _ResultScreenState extends State<ResultScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
                           ),
-                          elevation: 2,
                         ),
                       ),
                     ),
@@ -401,11 +391,7 @@ class _ResultScreenState extends State<ResultScreen> {
                       height: AppDimensions.buttonHeight,
                       child: OutlinedButton(
                         onPressed: () {
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(builder: (_) => const HomeScreen()),
-                            (route) => false,
-                          );
+                          Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false);
                         },
                         style: OutlinedButton.styleFrom(
                           padding: AppDimensions.buttonPadding,
@@ -413,35 +399,212 @@ class _ResultScreenState extends State<ResultScreen> {
                             borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
                           ),
                         ),
-                        child: Text(
-                          "Done",
-                          style: AppStyles.sectionHeadingStyle.copyWith(color: AppColors.primary),
+                        child: const Text(AppStrings.backToHome),
+                      ),
+                    ),
+                  ] else if (isGenuine || isRecalled || isExpired) ...[
+                    // 3. Product Details Card (Genuine, Recalled, Expired)
+                    Semantics(
+                      label: 'Product details card for $productName',
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(AppDimensions.screenPaddingSmall + 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(AppDimensions.cardRadius),
+                          border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  type.contains('pesticide') ? Icons.bug_report : Icons.eco,
+                                  color: primaryColor,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: AppDimensions.spaceSmall),
+                                Expanded(
+                                  child: Text(
+                                    productName,
+                                    style: AppStyles.headingStyle.copyWith(fontSize: 16),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: AppDimensions.spaceMedium),
+
+                            _buildDetailRow(AppStrings.manufacturerLabel, manufacturer),
+                            _buildDetailRow(AppStrings.batchLabel, batch),
+                            _buildDetailRow(AppStrings.typeLabel, type.toUpperCase()),
+                            _buildDetailRow(AppStrings.expiryDateLabel, expiryString, isHighlight: isExpired),
+                            _buildDetailRow(AppStrings.productCodeLabel, widget.scannedCode),
+                          ],
                         ),
                       ),
                     ),
+                    const SizedBox(height: AppDimensions.spaceXLarge),
+
+                    // Actions for Genuine
+                    if (isGenuine) ...[
+                      SizedBox(
+                        width: double.infinity,
+                        height: AppDimensions.buttonHeight,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pushReplacementNamed(context, AppRoutes.scan);
+                          },
+                          icon: const Icon(Icons.qr_code_scanner),
+                          label: Text(
+                            AppStrings.scanAnother,
+                            style: AppStyles.sectionHeadingStyle.copyWith(color: Colors.white),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: AppDimensions.buttonPadding,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                            ),
+                            elevation: 2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppDimensions.spaceSmall + 4),
+                      SizedBox(
+                        width: double.infinity,
+                        height: AppDimensions.buttonHeight,
+                        child: OutlinedButton(
+                          onPressed: () {
+                            Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: AppDimensions.buttonPadding,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                            ),
+                          ),
+                          child: Text(
+                            AppStrings.backToHome,
+                            style: AppStyles.sectionHeadingStyle.copyWith(color: AppColors.primary),
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      // Recalled or Expired: Provide Report button
+                      SizedBox(
+                        width: double.infinity,
+                        height: AppDimensions.buttonHeight,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pushNamed(context, AppRoutes.report, arguments: widget.scannedCode);
+                          },
+                          icon: const Icon(Icons.report_problem_rounded),
+                          label: Text(
+                            isRecalled ? AppStrings.reportRecalled : AppStrings.reportExpired,
+                            style: AppStyles.sectionHeadingStyle.copyWith(color: Colors.white),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.caution,
+                            foregroundColor: Colors.white,
+                            padding: AppDimensions.buttonPadding,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                            ),
+                            elevation: 2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppDimensions.spaceSmall + 4),
+                      SizedBox(
+                        width: double.infinity,
+                        height: AppDimensions.buttonHeight,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.pushReplacementNamed(context, AppRoutes.scan);
+                          },
+                          icon: const Icon(Icons.qr_code_scanner),
+                          label: Text(
+                            AppStrings.scanAnother,
+                            style: AppStyles.sectionHeadingStyle.copyWith(color: AppColors.primary),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: AppDimensions.buttonPadding,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppDimensions.buttonRadius),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppDimensions.spaceSmall + 4),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false);
+                        },
+                        child: Text(
+                          AppStrings.backToHome,
+                          style: AppStyles.bodyStyle.copyWith(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ] else ...[
-                    // Not genuine / Recalled / Expired -> Provide Report Button
+                    // 4. Not Recognized / Counterfeit Alert
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(AppDimensions.screenPaddingSmall),
+                      decoration: BoxDecoration(
+                        color: AppColors.danger.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
+                        border: Border.all(color: AppColors.danger.withValues(alpha: 0.2)),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.qr_code, size: 28, color: AppColors.danger),
+                          const SizedBox(height: AppDimensions.spaceSmall),
+                          Text(
+                            "Scanned Code: ${widget.scannedCode}",
+                            style: AppStyles.bodyStyle.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                          const SizedBox(height: AppDimensions.spaceSmall),
+                          Text(
+                            AppStrings.notRecognizedSubtitle,
+                            textAlign: TextAlign.center,
+                            style: AppStyles.mutedStyle.copyWith(fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppDimensions.spaceXLarge),
+
+                    // Report Fake Product Button
                     SizedBox(
                       width: double.infinity,
                       height: AppDimensions.buttonHeight,
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ReportScreen(scannedCode: widget.scannedCode),
-                            ),
-                          );
+                          Navigator.pushNamed(context, AppRoutes.report, arguments: widget.scannedCode);
                         },
                         icon: const Icon(Icons.report_problem_rounded),
                         label: Text(
-                          isRecalled
-                              ? "Report Recalled Product"
-                              : (isExpired ? "Report Expired Product" : "Report Counterfeit Product"),
+                          AppStrings.reportCounterfeit,
                           style: AppStyles.sectionHeadingStyle.copyWith(color: Colors.white),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isRecalled || isExpired ? AppColors.caution : AppColors.danger,
+                          backgroundColor: AppColors.danger,
                           foregroundColor: Colors.white,
                           padding: AppDimensions.buttonPadding,
                           shape: RoundedRectangleBorder(
@@ -457,14 +620,11 @@ class _ResultScreenState extends State<ResultScreen> {
                       height: AppDimensions.buttonHeight,
                       child: OutlinedButton.icon(
                         onPressed: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (_) => const ScanScreen()),
-                          );
+                          Navigator.pushReplacementNamed(context, AppRoutes.scan);
                         },
                         icon: const Icon(Icons.qr_code_scanner),
                         label: Text(
-                          "Scan Another",
+                          AppStrings.scanAnother,
                           style: AppStyles.sectionHeadingStyle.copyWith(color: AppColors.primary),
                         ),
                         style: OutlinedButton.styleFrom(
@@ -478,14 +638,10 @@ class _ResultScreenState extends State<ResultScreen> {
                     const SizedBox(height: AppDimensions.spaceSmall + 4),
                     TextButton(
                       onPressed: () {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(builder: (_) => const HomeScreen()),
-                          (route) => false,
-                        );
+                        Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false);
                       },
                       child: Text(
-                        "Back to Home",
+                        AppStrings.backToHome,
                         style: AppStyles.bodyStyle.copyWith(
                           color: AppColors.textSecondary,
                           fontWeight: FontWeight.w600,
@@ -494,7 +650,7 @@ class _ResultScreenState extends State<ResultScreen> {
                     ),
                   ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -503,27 +659,30 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   Widget _buildDetailRow(String label, String value, {bool isHighlight = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: AppStyles.mutedStyle.copyWith(fontSize: 13),
-          ),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: AppStyles.bodyStyle.copyWith(
-                fontWeight: isHighlight ? FontWeight.bold : FontWeight.w600,
-                color: isHighlight ? AppColors.danger : AppColors.textPrimary,
-                fontSize: 13,
+    return Semantics(
+      label: '$label: $value',
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: AppStyles.mutedStyle.copyWith(fontSize: 13),
+            ),
+            Flexible(
+              child: Text(
+                value,
+                textAlign: TextAlign.end,
+                style: AppStyles.bodyStyle.copyWith(
+                  fontWeight: isHighlight ? FontWeight.bold : FontWeight.w600,
+                  color: isHighlight ? AppColors.danger : AppColors.textPrimary,
+                  fontSize: 13,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

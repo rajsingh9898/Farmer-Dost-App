@@ -26,9 +26,9 @@ In Firestore, a collection only exists when it contains at least one document. C
 #### 1. `products` Collection (QR Code as Document ID)
 - Click **+ Start collection**.
 - Collection ID: `products` -> Click **Next**.
-- **Document ID**: Do NOT click "Auto-ID". Enter exact string: `FD-PB-00123-A7X9`.
+- **Document ID**: Do NOT click "Auto-ID". Enter exact string: `FD-FT-00123-A7X9KM`.
 - Add the fields (see [Section 2.1](#21-products-collection) for values):
-  - `code` (Type: `string`)
+  - `code` (Type: `string`, Value: `FD-FT-00123-A7X9KM`)
   - `name` (Type: `string`)
   - `manufacturer` (Type: `string`)
   - `batch` (Type: `string`)
@@ -108,12 +108,12 @@ Use fictional Punjab agricultural context (fictional manufacturers, realistic wh
 ### 2.1 `products` Collection
 
 #### Document 1 (Active Genuine Fertilizer)
-- **Path**: `/products/FD-PB-00123-A7X9`
-- **Document ID**: `FD-PB-00123-A7X9`
+- **Path**: `/products/FD-FT-00123-A7X9KM`
+- **Document ID**: `FD-FT-00123-A7X9KM`
 
 | Field Name | Type | Value | Notes |
 | :--- | :--- | :--- | :--- |
-| `code` | `string` | `FD-PB-00123-A7X9` | Matches Document ID |
+| `code` | `string` | `FD-FT-00123-A7X9KM` | Matches Document ID |
 | `name` | `string` | `Punjab Kisan Gold Neem Coated Urea 45kg` | Fictional brand |
 | `manufacturer` | `string` | `Punjab Krishi Rasayan Cooperative Ltd` | Fictional manufacturer |
 | `batch` | `string` | `PKR-UREA-2026-B12` | Batch identifier |
@@ -125,12 +125,12 @@ Use fictional Punjab agricultural context (fictional manufacturers, realistic wh
 | `dosage` | `string` | `45 kg per acre during first canal irrigation` | Farmer application guideline |
 
 #### Document 2 (Recalled Pesticide Batch)
-- **Path**: `/products/FD-PB-99441-REC1`
-- **Document ID**: `FD-PB-99441-REC1`
+- **Path**: `/products/FD-PS-00777-RECALL`
+- **Document ID**: `FD-PS-00777-RECALL`
 
 | Field Name | Type | Value | Notes |
 | :--- | :--- | :--- | :--- |
-| `code` | `string` | `FD-PB-99441-REC1` | Matches Document ID |
+| `code` | `string` | `FD-PS-00777-RECALL` | Matches Document ID |
 | `name` | `string` | `Malwa Shield Chlorpyrifos 20% EC 1L` | Fictional pesticide |
 | `manufacturer` | `string` | `Majha Agro Chemicals Pvt Ltd` | Fictional manufacturer |
 | `batch` | `string` | `MAC-RCL-2026-X` | Recalled lot |

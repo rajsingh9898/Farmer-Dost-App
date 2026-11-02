@@ -143,10 +143,47 @@ def seed_database():
         db.collection("products").document(p["code"]).set(p)
         print(f"    ✓ products/{p['code']} [{p['status'].upper()}] - {p['name']}")
 
+    # Optionally seed all 18 Punjabi products from products_input.csv
+    csv_candidates = [
+        "products_input.csv",
+        os.path.join("backend", "products_input.csv"),
+        os.path.join(os.path.dirname(__file__), "products_input.csv"),
+    ]
+    csv_path = next((p for p in csv_candidates if os.path.isfile(p)), None)
+    if csv_path:
+        import csv
+        print("\n[+] Seeding 18 Industrial Products from products_input.csv...")
+        with open(csv_path, mode="r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for idx, row in enumerate(reader, start=1):
+                raw_type = row.get("type", "fertilizer").strip().lower()
+                p_type = "fertilizer" if "fert" in raw_type or raw_type == "ft" else "pesticide"
+                t_code = "FT" if p_type == "fertilizer" else "PS"
+                p_code = f"FD-{t_code}-{idx*100+1:05d}-REG{idx:03d}"
+                mfg_str = row.get("manufactureDate", "").strip()
+                exp_str = row.get("expiryDate", "").strip()
+                mfg_dt = datetime.strptime(mfg_str, "%Y-%m-%d").replace(tzinfo=timezone.utc) if mfg_str else datetime.now(timezone.utc)
+                exp_dt = datetime.strptime(exp_str, "%Y-%m-%d").replace(tzinfo=timezone.utc) if exp_str else datetime.now(timezone.utc)
+
+                doc_payload = {
+                    "code": p_code,
+                    "name": row.get("name", "").strip(),
+                    "manufacturer": row.get("manufacturer", "").strip(),
+                    "batch": row.get("batch", "").strip(),
+                    "type": p_type,
+                    "status": row.get("status", "active").strip().lower(),
+                    "manufactureDate": mfg_dt,
+                    "expiryDate": exp_dt,
+                    "createdAt": datetime.now(timezone.utc),
+                    "dosage": row.get("dosage", "").strip() or None,
+                }
+                db.collection("products").document(p_code).set(doc_payload)
+                print(f"    ✓ products/{p_code} [{doc_payload['status'].upper()}] - {doc_payload['name']}")
+
     print("\n=======================================================")
     print("✅ Firebase Emulator Database Successfully Seeded!")
     print(f"   - Users: 1 (UID: {test_user_id})")
-    print(f"   - Core Test Products: 3")
+    print(f"   - Core Test Products: 3 + 18 Regional Punjabi Products")
     print("   Ready for Day 27 E2E Integration Suite.")
     print("=======================================================\n")
 

@@ -75,7 +75,7 @@ service cloud.firestore {
                     && request.resource.data.timestamp == request.time
                     && (!('note' in request.resource.data) || request.resource.data.note == null || (request.resource.data.note is string && request.resource.data.note.size() <= 100))
                     && (!('location' in request.resource.data) || request.resource.data.location == null || request.resource.data.location is latlng);
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid);
       allow update, delete: if false;
     }
 

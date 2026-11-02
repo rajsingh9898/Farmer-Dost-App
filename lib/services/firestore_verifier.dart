@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 /// point lookups, non-existent document handling, and composite indexed queries.
 Future<bool> runDay16FirestoreVerification({
   FirebaseFirestore? firestore,
-  String testProductId = 'FD-PB-00123-A7X9',
+  String testProductId = 'FD-FT-00123-A7X9KM',
   String nonExistentId = 'NON-EXISTENT-CODE-999',
   String testUserId = 'usr_punjab_farmer_01',
 }) async {

@@ -1,32 +1,88 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
-  /// Primary / success color: Trustworthy agricultural green
+  AppColors._();
+
+  /// Primary / success color: Trustworthy agricultural green (Figma spec)
   static const Color primary = Color(0xFF2E7D32);
   static const Color success = Color(0xFF2E7D32);
 
-  /// Danger / warning color: Clear red for fake product states
+  /// Danger / error color: Clear red for counterfeit and error states
   static const Color danger = Color(0xFFD32F2F);
   static const Color error = Color(0xFFD32F2F);
 
-  /// Caution / needs review color: Reserved amber for caution states
-  static const Color caution = Color(0xFFF9A825);
+  /// Caution / reserved amber: For recalled/expired/needs review states
+  static const Color caution = Color(0xFFF57F17);
+  static const Color cautionText = Color(0xFFB26A00); // Deep amber for outdoor contrast
+
+  /// Specific Verification Status Colors
+  static const Color recalled = Color(0xFFED6C02);
+  static const Color expired = Color(0xFFE65100);
+  static const Color offline = Color(0xFF0288D1);
+
+  /// High-Contrast Status Container Backgrounds (Outdoor Field Tested)
+  static const Color successContainer = Color(0xFFE8F5E9);
+  static const Color errorContainer = Color(0xFFFFEBEE);
+  static const Color cautionContainer = Color(0xFFFFF3E0);
+  static const Color offlineContainer = Color(0xFFE1F5FE);
 
   /// Background: Light neutral
   static const Color background = Color(0xFFF7F7F7);
 
-  /// Text: Dark grey / near-black for primary text
-  static const Color textPrimary = Color(0xFF1A1C1E);
+  /// Text: Deep charcoal/near-black for high contrast outdoor sunlight visibility
+  static const Color textPrimary = Color(0xFF111418);
 
-  /// Text: Medium grey for muted / secondary text (dates, subtext)
-  static const Color textSecondary = Color(0xFF74777F);
+  /// Text: Sharpened dark grey for muted/secondary labels (WCAG AAA sunlight compliant)
+  static const Color textSecondary = Color(0xFF42474E);
 
   /// Card / Surface color
   static const Color surface = Colors.white;
+
+  /// High-contrast border color for outdoor legibility
+  static const Color border = Color(0xFFE0E0E0);
+
+  /// Helper to calculate WCAG 2.1 relative luminance
+  static double getRelativeLuminance(Color color) {
+    double transform(double c) {
+      return (c <= 0.04045)
+          ? c / 12.92
+          : math.pow((c + 0.055) / 1.055, 2.4).toDouble();
+    }
+
+    final r = transform(color.r);
+    final g = transform(color.g);
+    final b = transform(color.b);
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+
+  /// Calculates WCAG contrast ratio between two colors (ratio from 1.0 to 21.0)
+  static double calculateContrastRatio(Color foreground, Color background) {
+    final l1 = getRelativeLuminance(foreground);
+    final l2 = getRelativeLuminance(background);
+    final lighter = l1 > l2 ? l1 : l2;
+    final darker = l1 > l2 ? l2 : l1;
+    return (lighter + 0.05) / (darker + 0.05);
+  }
+
+  /// Validates if foreground/background meets standard WCAG AA contrast (4.5:1, or 3.0:1 for large text)
+  static bool meetsWcagAA(Color foreground, Color background, {bool isLargeText = false}) {
+    final ratio = calculateContrastRatio(foreground, background);
+    return ratio >= (isLargeText ? 3.0 : 4.5);
+  }
+
+  /// Outdoor sunlight standard: Requires high-contrast ratio (>= 7.0:1, WCAG AAA)
+  /// ensuring legibility for farmers working in bright sunlight
+  static bool meetsOutdoorSunlightStandard(Color foreground, Color background) {
+    final ratio = calculateContrastRatio(foreground, background);
+    return ratio >= 7.0;
+  }
 }
 
 class AppDimensions {
+  AppDimensions._();
+
   /// Screen padding
   static const double screenPadding = 24.0;
   static const double screenPaddingSmall = 16.0;
@@ -35,6 +91,10 @@ class AppDimensions {
   static const double cardRadius = 16.0;
   static const double smallRadius = 12.0;
   static const double pillRadius = 24.0;
+  static const double modalRadius = 24.0;
+
+  /// Minimum Touch Target (Accessibility & Android Material guidelines: >= 48dp)
+  static const double minTouchTarget = 48.0;
 
   /// Button dimensions
   static const double buttonRadius = 12.0;
@@ -50,6 +110,15 @@ class AppDimensions {
 }
 
 class AppStyles {
+  AppStyles._();
+
+  /// Large Display TextStyle for Hero & Splash (Inter weight 700)
+  static TextStyle displayStyle = GoogleFonts.inter(
+    fontSize: 26,
+    fontWeight: FontWeight.w700,
+    color: AppColors.textPrimary,
+  );
+
   /// Heading TextStyle (Inter weight 600)
   static TextStyle headingStyle = GoogleFonts.inter(
     fontSize: 20,
@@ -71,10 +140,10 @@ class AppStyles {
     color: AppColors.textPrimary,
   );
 
-  /// Muted / Secondary TextStyle (dates, subtext)
+  /// Muted / Secondary TextStyle (dates, subtext - outdoor sunlight enhanced)
   static TextStyle mutedStyle = GoogleFonts.inter(
     fontSize: 12,
-    fontWeight: FontWeight.w400,
+    fontWeight: FontWeight.w500,
     color: AppColors.textSecondary,
   );
 }
@@ -91,6 +160,7 @@ final ThemeData appTheme = ThemeData(
     surface: AppColors.surface,
   ),
   textTheme: TextTheme(
+    displayLarge: AppStyles.displayStyle,
     headlineMedium: AppStyles.headingStyle,
     titleMedium: AppStyles.sectionHeadingStyle,
     bodyMedium: AppStyles.bodyStyle,

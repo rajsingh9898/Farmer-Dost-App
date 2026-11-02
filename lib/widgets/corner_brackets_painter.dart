@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class CornerBracketsPainter extends CustomPainter {
   final Color color;
@@ -7,7 +8,7 @@ class CornerBracketsPainter extends CustomPainter {
   final double borderRadius;
 
   CornerBracketsPainter({
-    this.color = const Color(0xFF2E7D32),
+    this.color = AppColors.primary,
     this.strokeWidth = 4.0,
     this.cornerLength = 40.0,
     this.borderRadius = 12.0,

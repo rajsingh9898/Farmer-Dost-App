@@ -726,7 +726,7 @@ def main():
         description="Farmer Dost App — Secure Product Code & QR Generator",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--test", action="store_true", help="Run 10,000 codes in-memory collision self-test")
+    parser.add_argument("--test", "--self-test", dest="test", action="store_true", help="Run 10,000 codes in-memory collision self-test")
     parser.add_argument("--csv", type=str, default="products_input.csv", help="Input CSV file with product details")
     parser.add_argument("--dry-run", action="store_true", help="Run locally without writing to Cloud Firestore")
     parser.add_argument("--checksum", action="store_true", default=os.environ.get("GENERATE_CHECKSUM", "false").lower() in ("true", "1", "yes"), help="Append 1-character verification checksum to codes")

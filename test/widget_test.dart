@@ -17,7 +17,8 @@ void main() {
     // Verify that the title appears
     expect(find.text('Farmer Dost'), findsOneWidget);
 
-    // Advance timer past splash screen delay
-    await tester.pump(const Duration(seconds: 3));
+    // Advance timer past splash screen delay and settle
+    await tester.pump(const Duration(seconds: 7));
+    await tester.pumpAndSettle();
   });
 }

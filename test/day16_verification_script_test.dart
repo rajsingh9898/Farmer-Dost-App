@@ -7,7 +7,7 @@ void main() {
       // In CI / local test environment without initialized Firebase App,
       // the verifier must catch the error gracefully and return false without crashing.
       final result = await runDay16FirestoreVerification(
-        testProductId: 'FD-PB-00123-A7X9',
+        testProductId: 'FD-FT-00123-A7X9KM',
         nonExistentId: 'NON-EXISTENT-CODE-999',
         testUserId: 'usr_punjab_farmer_01',
       );

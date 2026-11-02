@@ -124,6 +124,25 @@ class AuthService {
     }
   }
 
+  /// sendPasswordResetEmail(email)
+  /// Triggers a password reset email via Firebase Auth.
+  Future<void> sendPasswordResetEmail(String email) async {
+    final cleanEmail = email.trim();
+    if (cleanEmail.isEmpty) {
+      throw FirebaseAuthException(
+        code: 'invalid-email',
+        message: 'Please enter a valid email address.',
+      );
+    }
+
+    try {
+      await auth.sendPasswordResetEmail(email: cleanEmail);
+    } catch (e) {
+      debugPrint('Error in sendPasswordResetEmail: $e');
+      rethrow;
+    }
+  }
+
   // =========================================================================
   // 2. PHONE OTP FLOW (SEPARATE FROM EMAIL FUNCTIONS)
   // =========================================================================

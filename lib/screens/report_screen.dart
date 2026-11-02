@@ -3,14 +3,32 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import '../services/services.dart';
 import '../theme/app_theme.dart';
+import '../routes/app_routes.dart';
+import '../l10n/app_strings.dart';
 
+/// Day 38 — Counterfeit Product Report Screen
+///
+/// Features:
+/// - Prefilled, read-only product code
+/// - Optional location capture via Geolocator with 10-second timeout
+/// - Non-blocking location permissions & service handling
+/// - Optional note with 100-character max and live counter
+/// - Double-submission prevention (submit button disabled during flight)
+/// - Robust mapping of ReportResult statuses:
+///   - success -> SnackBar -> return to Home
+///   - alreadyReported -> SnackBar -> return to Home
+///   - notSignedIn -> SnackBar prompting sign-in
+///   - networkError -> keeps input and allows retry
+///   - permissionDenied -> developer log & friendly message
 class ReportScreen extends StatefulWidget {
   final String scannedCode;
+  final ReportService? customReportService;
 
   const ReportScreen({
     super.key,
     String? scannedCode,
     String? productCode,
+    this.customReportService,
   }) : scannedCode = scannedCode ?? productCode ?? '';
 
   @override
@@ -18,7 +36,7 @@ class ReportScreen extends StatefulWidget {
 }
 
 class _ReportScreenState extends State<ReportScreen> {
-  late TextEditingController _codeController;
+  late final TextEditingController _codeController;
   final TextEditingController _noteController = TextEditingController();
 
   String? _locationString;
@@ -40,17 +58,18 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 
   Future<void> _fetchCurrentLocation() async {
+    if (_isFetchingLocation) return;
     setState(() => _isFetchingLocation = true);
 
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Location services are disabled on your device.")),
+            const SnackBar(content: Text('Location services are disabled on your device.')),
           );
+          setState(() => _isFetchingLocation = false);
         }
-        setState(() => _isFetchingLocation = false);
         return;
       }
 
@@ -60,10 +79,10 @@ class _ReportScreenState extends State<ReportScreen> {
         if (permission == LocationPermission.denied) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Location permission denied.")),
+              const SnackBar(content: Text('Location permission denied.')),
             );
+            setState(() => _isFetchingLocation = false);
           }
-          setState(() => _isFetchingLocation = false);
           return;
         }
       }
@@ -71,29 +90,30 @@ class _ReportScreenState extends State<ReportScreen> {
       if (permission == LocationPermission.deniedForever) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Location permissions are permanently denied.")),
+            const SnackBar(content: Text('Location permissions are permanently denied.')),
           );
+          setState(() => _isFetchingLocation = false);
         }
-        setState(() => _isFetchingLocation = false);
         return;
       }
 
+      // 10-Second limit timeout for GPS coordinates acquisition
       final Position position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 8),
+          timeLimit: Duration(seconds: 10),
         ),
       );
 
       if (mounted) {
         setState(() {
           _geoPoint = GeoPoint(position.latitude, position.longitude);
-          _locationString = "Lat: ${position.latitude.toStringAsFixed(2)}, Lng: ${position.longitude.toStringAsFixed(2)}";
+          _locationString = 'Lat: ${position.latitude.toStringAsFixed(2)}, Lng: ${position.longitude.toStringAsFixed(2)}';
           _isFetchingLocation = false;
         });
       }
     } catch (e) {
-      debugPrint("Geolocator exception: $e");
+      debugPrint('[ReportScreen] Location capture notice: $e');
       if (mounted) {
         setState(() => _isFetchingLocation = false);
       }
@@ -105,13 +125,14 @@ class _ReportScreenState extends State<ReportScreen> {
 
     setState(() => _isSubmitting = true);
 
-    final code = _codeController.text.trim().isNotEmpty
+    final String code = _codeController.text.trim().isNotEmpty
         ? _codeController.text.trim()
         : widget.scannedCode;
-    final noteText = _noteController.text;
+    final String noteText = _noteController.text;
 
     try {
-      final result = await reportService.submitReport(
+      final service = widget.customReportService ?? reportService;
+      final ReportResult result = await service.submitReport(
         productCode: code,
         location: _geoPoint,
         note: noteText,
@@ -120,46 +141,77 @@ class _ReportScreenState extends State<ReportScreen> {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
 
-      if (result.status == ReportStatus.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Report submitted successfully! Thank you for protecting Punjab farmers."),
-            backgroundColor: AppColors.primary,
-            duration: Duration(seconds: 4),
-          ),
-        );
-        Navigator.popUntil(context, (route) => route.isFirst);
-      } else if (result.status == ReportStatus.alreadyReported) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("You have already reported this product code. Your report is pending review."),
-            backgroundColor: AppColors.caution,
-            duration: Duration(seconds: 4),
-          ),
-        );
-        Navigator.popUntil(context, (route) => route.isFirst);
-      } else if (result.status == ReportStatus.notSignedIn) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Please sign in to submit a report."),
-            backgroundColor: AppColors.danger,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result.message),
-            backgroundColor: AppColors.danger,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+      switch (result.status) {
+        case ReportStatus.success:
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(AppStrings.reportSuccess),
+              backgroundColor: AppColors.primary,
+              duration: Duration(seconds: 4),
+            ),
+          );
+          Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false);
+          break;
+
+        case ReportStatus.alreadyReported:
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(AppStrings.reportAlreadyReported),
+              backgroundColor: AppColors.caution,
+              duration: Duration(seconds: 4),
+            ),
+          );
+          Navigator.pushNamedAndRemoveUntil(context, AppRoutes.home, (route) => false);
+          break;
+
+        case ReportStatus.notSignedIn:
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(AppStrings.reportNotSignedIn),
+              backgroundColor: AppColors.danger,
+              duration: Duration(seconds: 4),
+            ),
+          );
+          break;
+
+        case ReportStatus.permissionDenied:
+          debugPrint('[ReportScreen] Permission denied in Firestore security rules: ${result.message}');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(AppStrings.reportPermissionDenied),
+              backgroundColor: AppColors.danger,
+              duration: Duration(seconds: 4),
+            ),
+          );
+          break;
+
+        case ReportStatus.networkError:
+          // Keep what the farmer typed in _noteController so they can retry
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result.message.isNotEmpty ? result.message : AppStrings.networkError),
+              backgroundColor: AppColors.caution,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+          break;
+
+        case ReportStatus.invalidInput:
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result.message.isNotEmpty ? result.message : AppStrings.genericError),
+              backgroundColor: AppColors.danger,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+          break;
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Submission error: $e"),
+          content: Text('Submission error: $e'),
           backgroundColor: AppColors.danger,
         ),
       );
@@ -171,7 +223,7 @@ class _ReportScreenState extends State<ReportScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text("Report Counterfeit Product"),
+        title: const Text(AppStrings.reportScreenTitle),
         backgroundColor: AppColors.danger,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -196,7 +248,7 @@ class _ReportScreenState extends State<ReportScreen> {
                     const SizedBox(width: AppDimensions.spaceSmall + 4),
                     Expanded(
                       child: Text(
-                        "Flagging fake products alerts agricultural authorities and protects fellow farmers.",
+                        AppStrings.reportBannerNotice,
                         style: AppStyles.bodyStyle.copyWith(fontSize: 13),
                       ),
                     ),
@@ -207,14 +259,18 @@ class _ReportScreenState extends State<ReportScreen> {
 
               // Field 1: Read-Only Product Code
               Text(
-                "Product Code",
+                AppStrings.reportCodeLabel,
                 style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: AppDimensions.spaceSmall),
               TextFormField(
                 controller: _codeController,
                 readOnly: true,
-                style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                style: AppStyles.bodyStyle.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'monospace',
+                  color: AppColors.textSecondary,
+                ),
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.qr_code_rounded, color: AppColors.textSecondary),
                   filled: true,
@@ -233,7 +289,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
               // Field 2: Optional Location Pin & Capture Row
               Text(
-                "Location (Optional)",
+                AppStrings.locationLabel,
                 style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: AppDimensions.spaceSmall),
@@ -247,49 +303,57 @@ class _ReportScreenState extends State<ReportScreen> {
                   borderRadius: BorderRadius.circular(AppDimensions.smallRadius),
                   border: Border.all(color: AppColors.textSecondary.withValues(alpha: 0.2)),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      _locationString != null ? Icons.location_on_rounded : Icons.my_location_rounded,
-                      color: _locationString != null ? AppColors.danger : AppColors.textSecondary,
-                    ),
-                    const SizedBox(width: AppDimensions.spaceSmall + 4),
-                    Expanded(
-                      child: Text(
-                        _locationString ?? "No location captured",
-                        style: AppStyles.bodyStyle.copyWith(
-                          color: _locationString != null ? AppColors.textPrimary : AppColors.textSecondary,
-                          fontWeight: _locationString != null ? FontWeight.w600 : FontWeight.normal,
+                    Row(
+                      children: [
+                        Icon(
+                          _locationString != null ? Icons.location_on_rounded : Icons.my_location_rounded,
+                          color: _locationString != null ? AppColors.danger : AppColors.textSecondary,
                         ),
-                      ),
-                    ),
-                    if (_isFetchingLocation)
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.danger),
-                      )
-                    else
-                      TextButton.icon(
-                        onPressed: _fetchCurrentLocation,
-                        icon: const Icon(Icons.gps_fixed, size: 16, color: AppColors.danger),
-                        label: Text(
-                          _locationString != null ? "Update" : "Use current location",
-                          style: AppStyles.bodyStyle.copyWith(
-                            color: AppColors.danger,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                        const SizedBox(width: AppDimensions.spaceSmall + 4),
+                        Expanded(
+                          child: Text(
+                            _locationString ?? 'No location captured',
+                            style: AppStyles.bodyStyle.copyWith(
+                              color: _locationString != null ? AppColors.textPrimary : AppColors.textSecondary,
+                              fontWeight: _locationString != null ? FontWeight.w600 : FontWeight.normal,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: _isFetchingLocation
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.danger),
+                            )
+                          : TextButton.icon(
+                              onPressed: _fetchCurrentLocation,
+                              icon: const Icon(Icons.gps_fixed, size: 16, color: AppColors.danger),
+                              label: Text(
+                                _locationString != null ? AppStrings.updateLocation : AppStrings.useCurrentLocation,
+                                style: AppStyles.bodyStyle.copyWith(
+                                  color: AppColors.danger,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: AppDimensions.spaceMedium + 4),
 
-              // Field 3: Optional Multiline Note (Max 100 Chars)
+              // Field 3: Optional Multiline Note with 100 max length counter
               Text(
-                "Note (Optional)",
+                AppStrings.noteLabel,
                 style: AppStyles.bodyStyle.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: AppDimensions.spaceSmall),
@@ -299,7 +363,7 @@ class _ReportScreenState extends State<ReportScreen> {
                 maxLines: 3,
                 style: AppStyles.bodyStyle,
                 decoration: InputDecoration(
-                  hintText: "Anything you'd like to add (optional)",
+                  hintText: AppStrings.noteHint,
                   hintStyle: AppStyles.mutedStyle.copyWith(fontSize: 14),
                   filled: true,
                   fillColor: AppColors.surface,
@@ -335,7 +399,7 @@ class _ReportScreenState extends State<ReportScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
                         )
                       : Text(
-                          "Submit Report",
+                          AppStrings.submitReportBtn,
                           style: AppStyles.sectionHeadingStyle.copyWith(
                             color: Colors.white,
                           ),
