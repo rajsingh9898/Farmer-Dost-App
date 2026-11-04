@@ -15,6 +15,7 @@ class FirestoreConnectionException implements Exception {
   String toString() => message;
 }
 
+
 class FirestoreService {
   static final FirestoreService _instance = FirestoreService._internal();
   factory FirestoreService() => _instance;

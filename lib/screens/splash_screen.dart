@@ -86,6 +86,7 @@ class _SplashScreenState extends State<SplashScreen> {
       stopwatch.stop();
     }
   }
+
   
 
   /// Verifies Firebase Core initialization and Auth readiness

@@ -12,6 +12,7 @@ export 'report_service.dart';
 export 'profile_service.dart';
 export 'scan_history_service.dart';
 
+
 // Domain Data Models & Result Types
 export '../models/verification_result.dart';
 export '../models/report_result.dart';

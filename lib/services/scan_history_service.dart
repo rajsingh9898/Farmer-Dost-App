@@ -14,6 +14,7 @@ enum ScanHistoryStatus {
   error,
 }
 
+
 /// Structured, non-throwing scan history response.
 class ScanHistoryResult {
   final ScanHistoryStatus status;
