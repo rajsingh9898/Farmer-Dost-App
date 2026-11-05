@@ -11,6 +11,7 @@ import 'routes/app_routes.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+
   // Day 41: Lock orientation strictly to portrait for agricultural outdoor field stability
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

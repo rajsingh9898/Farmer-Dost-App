@@ -17,6 +17,7 @@ class ResultScreenArguments {
   final String scannedCode;
   final bool isGenuine;
   final bool connectionError;
+  
   final String? errorMessage;
 
   const ResultScreenArguments({

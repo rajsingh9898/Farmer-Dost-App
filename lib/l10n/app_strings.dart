@@ -4,7 +4,6 @@
 /// into Punjabi (ਪੰਜਾਬੀ), Hindi (हिन्दी), and English in upcoming phases.
 class AppStrings {
   AppStrings._();
-
   // App & Common
   static const String appName = 'Farmer Dost';
   static const String appTagline = 'Scan. Verify. Trust.';
@@ -54,6 +53,8 @@ class AppStrings {
   static const String emailTab = 'Email & Password';
   static const String phoneTab = 'Phone OTP';
   static const String continueAsGuest = 'Continue as Guest';
+
+
 
   // Home Screen
   static const String tapToScan = 'Tap to Scan Product';
