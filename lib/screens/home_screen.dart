@@ -7,8 +7,7 @@ import '../l10n/app_strings.dart';
 import '../widgets/primary_scan_button.dart';
 import '../widgets/scan_history_tile.dart';
 
-/// Days 31 & 40 — Home Screen UI Connected to ScanHistoryService
-///
+
 /// Features:
 /// - Top bar with App name and Profile action icon
 /// - Large Circular Hero Scan button with interactive press animation

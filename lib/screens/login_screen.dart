@@ -5,7 +5,7 @@ import '../routes/app_routes.dart';
 import '../l10n/app_strings.dart';
 
 /// Day 32 — Login & Sign Up Screen connected to Firebase Auth.
-///
+
 /// Features:
 /// - Single screen with seamless toggle between Sign In and Sign Up modes
 /// - Name field displayed only in Sign Up mode

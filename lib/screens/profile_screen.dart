@@ -3,7 +3,6 @@ import '../services/services.dart';
 import '../theme/app_theme.dart';
 import '../routes/app_routes.dart';
 import '../l10n/app_strings.dart';
-
 /// Day 39 — Farmer Profile Screen
 ///
 /// Features:

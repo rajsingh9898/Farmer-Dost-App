@@ -7,7 +7,6 @@ import '../widgets/error_card.dart';
 import '../theme/app_theme.dart';
 import '../routes/app_routes.dart';
 import '../l10n/app_strings.dart';
-
 /// Days 36 & 37 — Result Screen with Real Data, Accessibility, and Dynamic Feedback
 ///
 /// Features:
